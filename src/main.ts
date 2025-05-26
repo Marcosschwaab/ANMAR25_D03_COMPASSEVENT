@@ -13,7 +13,7 @@ async function bootstrap() {
     .addTag('event')
     .build();
   const documentFactory = () => SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('v1/api', app, documentFactory);
+  SwaggerModule.setup('api/v1', app, documentFactory);
 
   await app.listen(process.env.PORT ?? 3000);
 }
