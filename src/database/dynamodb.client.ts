@@ -1,13 +1,13 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 
-const client = new DynamoDBClient({
-  region: process.env.REGION,
-  endpoint: process.env.DYNAMO_ENDPOINT,
-  credentials: {
-  accessKeyId: 'local-dynamo-key',
-  secretAccessKey: 'local-dynamo-secret',
-}
-});
-
-export const ddbDocClient = DynamoDBDocumentClient.from(client);
+export const ddbDocClient = DynamoDBDocumentClient.from(
+  new DynamoDBClient({
+    region: 'local',
+    endpoint: 'http://localhost:8000',
+    credentials: {
+      accessKeyId: 'fake',
+      secretAccessKey: 'fake',
+    },
+  }),
+);

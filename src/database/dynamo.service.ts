@@ -6,8 +6,12 @@ export class DynamoDBService implements OnModuleInit {
   private readonly logger = new Logger(DynamoDBService.name);
 
   private client = new DynamoDBClient({
-    region: process.env.REGION,
-    endpoint: process.env.DYNAMO_ENDPOINT,
+    region: 'local',
+    endpoint: 'http://localhost:8000',
+    credentials: {
+      accessKeyId: 'fakeAccessKey',     
+      secretAccessKey: 'fakeSecretKey', 
+    },
   });
 
   async onModuleInit() {
