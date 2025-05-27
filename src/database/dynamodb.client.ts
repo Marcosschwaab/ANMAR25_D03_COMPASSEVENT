@@ -4,6 +4,10 @@ import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 const client = new DynamoDBClient({
   region: process.env.REGION,
   endpoint: process.env.DYNAMO_ENDPOINT,
+  credentials: {
+  accessKeyId: 'local-dynamo-key',
+  secretAccessKey: 'local-dynamo-secret',
+}
 });
 
 export const ddbDocClient = DynamoDBDocumentClient.from(client);
