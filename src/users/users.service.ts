@@ -1,13 +1,9 @@
 import { Injectable, ConflictException } from '@nestjs/common';
-import * as AWS from 'aws-sdk';
 import { v4 as uuidv4 } from 'uuid';
 import * as bcrypt from 'bcrypt';
 import { User } from './entities/user.entity';
-
-const dynamoDb = new AWS.DynamoDB.DocumentClient({
-  endpoint: process.env.DYNAMO_ENDPOINT,
-  region: process.env.REGION,
-});
+import { PutCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
+import { ddbDocClient } from '../database/dynamodb.client';
 
 @Injectable()
 export class UsersService {
@@ -15,7 +11,9 @@ export class UsersService {
 
   async create(data: any): Promise<User> {
     const existing = await this.findByEmail(data.email);
-    if (existing) throw new ConflictException('Email already exists');
+    if (existing) {
+      throw new ConflictException('Email already exists');
+    }
 
     const user: User = {
       id: uuidv4(),
@@ -30,16 +28,20 @@ export class UsersService {
       updatedAt: new Date().toISOString(),
     };
 
-    await dynamoDb.put({ TableName: this.tableName, Item: user }).promise();
+    await ddbDocClient.send(new PutCommand({
+      TableName: this.tableName,
+      Item: user,
+    }));
+
     return user;
   }
 
   async findByEmail(email: string): Promise<User | null> {
-    const result = await dynamoDb.scan({
+    const result = await ddbDocClient.send(new ScanCommand({
       TableName: this.tableName,
       FilterExpression: 'email = :email',
       ExpressionAttributeValues: { ':email': email },
-    }).promise();
+    }));
 
     return result.Items?.[0] as User || null;
   }
