@@ -10,7 +10,6 @@ import { RolesGuard } from './common/guards/roles.guard';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 
 
-import { JwtStrategy } from './auth/jwt.strategy';
 
 @Module({
   imports: [
@@ -22,7 +21,14 @@ import { JwtStrategy } from './auth/jwt.strategy';
     AppService,
     DynamoDBService,
 
-
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: RolesGuard,
+    },
   ],
   exports: [DynamoDBService]
 })
