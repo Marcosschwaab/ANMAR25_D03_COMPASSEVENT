@@ -43,7 +43,7 @@ export class User {
     description: 'URL of the profile image',
     required: false
   })
-  profileImageUrl: string;
+  profileImageUrl?: string;
 
   @ApiProperty({
     enum: UserRole,
@@ -69,5 +69,8 @@ export class User {
     example: '2023-01-01T00:00:00.000Z',
     description: 'Last update timestamp',
   })
-  updatedAt: string;
+  updatedAt?: string;
+  
+
+  deletedAt?: string; 
 }
