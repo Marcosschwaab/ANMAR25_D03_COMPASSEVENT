@@ -8,6 +8,7 @@ import { AuthModule } from './auth/auth.module';
 import { APP_GUARD } from '@nestjs/core';
 import { RolesGuard } from './common/guards/roles.guard';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
+import { EventsModule } from './events/events.module';
 
 
 
@@ -17,6 +18,7 @@ import { JwtAuthGuard } from './auth/jwt-auth.guard';
     ConfigModule.forRoot({ isGlobal: true }),
     UsersModule,
     AuthModule,
+    EventsModule,
     ],
   controllers: [AppController],
   providers: [
