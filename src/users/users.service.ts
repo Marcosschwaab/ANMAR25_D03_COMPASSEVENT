@@ -46,6 +46,45 @@ export class UsersService {
 
     return user;
   }
+  async list(filters: { name?: string; email?: string; role?: string }) {
+  const filterExpressions: string[] = [];
+  const attributeValues: Record<string, any> = {};
+
+  if (filters.name) {
+    filterExpressions.push('contains(#n, :name)');
+    attributeValues[':name'] = filters.name;
+  }
+
+  if (filters.email) {
+    filterExpressions.push('contains(#e, :email)');
+    attributeValues[':email'] = filters.email;
+  }
+
+  if (filters.role) {
+    filterExpressions.push('#r = :role');
+    attributeValues[':role'] = filters.role;
+  }
+
+  filterExpressions.push('attribute_not_exists(deletedAt)');
+
+  const result = await ddbDocClient.send(
+    new ScanCommand({
+      TableName: this.tableName,
+      FilterExpression: filterExpressions.join(' AND '),
+      ExpressionAttributeNames: {
+        '#n': 'name',
+        '#e': 'email',
+        '#r': 'role',
+      },
+      ExpressionAttributeValues: attributeValues,
+    }),
+  );
+
+  return result.Items?.map((u) => {
+    const { password, ...user } = u;
+    return user;
+  });
+}
 
   async findByEmail(email: string): Promise<User | null> {
     const result = await ddbDocClient.send(
