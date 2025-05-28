@@ -11,11 +11,13 @@ import { JwtAuthGuard } from './auth/jwt-auth.guard';
 
 
 
+
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     UsersModule,
-    AuthModule],
+    AuthModule,
+    ],
   controllers: [AppController],
   providers: [
     AppService,
