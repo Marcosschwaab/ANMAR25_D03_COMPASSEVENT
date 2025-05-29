@@ -1,26 +1,83 @@
-import { Injectable } from '@nestjs/common';
-import { CreateRegistrationDto } from './dto/create-registration.dto';
-import { UpdateRegistrationDto } from './dto/update-registration.dto';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { v4 as uuidv4 } from 'uuid';
+import { PutCommand, ScanCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { ddbDocClient } from '../database/dynamodb.client';
+import { EventsService } from '../events/events.service';
 
 @Injectable()
 export class RegistrationsService {
-  create(createRegistrationDto: CreateRegistrationDto) {
-    return 'This action adds a new registration';
+  private tableName = 'Registrations';
+
+  constructor(private readonly eventsService: EventsService) {}
+
+  async create(eventId: string, participantId: string) {
+    const event = await this.eventsService.findById(eventId);
+
+    if (!event || event.status === 'inactive') {
+      throw new BadRequestException('Invalid or inactive event');
+    }
+
+    const eventDate = new Date(event.date);
+    if (eventDate < new Date()) {
+      throw new BadRequestException('Event has already occurred');
+    }
+
+    const registration = {
+      id: uuidv4(),
+      eventId,
+      participantId,
+      createdAt: new Date().toISOString(),
+    };
+
+    await ddbDocClient.send(new PutCommand({
+      TableName: this.tableName,
+      Item: registration,
+    }));
+
+    return registration;
   }
 
-  findAll() {
-    return `This action returns all registrations`;
+  async findAllByParticipant(participantId: string, limit = 10, startKey?: any) {
+    const result = await ddbDocClient.send(new ScanCommand({
+      TableName: this.tableName,
+      FilterExpression: 'participantId = :p AND attribute_not_exists(deletedAt)',
+      ExpressionAttributeValues: {
+        ':p': participantId,
+      },
+      Limit: limit,
+      ExclusiveStartKey: startKey,
+    }));
+
+    return {
+      items: result.Items,
+      nextPageToken: result.LastEvaluatedKey,
+    };
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} registration`;
-  }
+  async softDelete(id: string, participantId: string) {
+    const result = await ddbDocClient.send(new ScanCommand({
+      TableName: this.tableName,
+      FilterExpression: 'id = :id AND participantId = :pid',
+      ExpressionAttributeValues: {
+        ':id': id,
+        ':pid': participantId,
+      },
+    }));
 
-  update(id: number, updateRegistrationDto: UpdateRegistrationDto) {
-    return `This action updates a #${id} registration`;
-  }
+    const registration = result.Items?.[0];
+    if (!registration) {
+      throw new NotFoundException('Registration not found');
+    }
 
-  remove(id: number) {
-    return `This action removes a #${id} registration`;
+    await ddbDocClient.send(new UpdateCommand({
+      TableName: this.tableName,
+      Key: { id },
+      UpdateExpression: 'SET deletedAt = :d',
+      ExpressionAttributeValues: {
+        ':d': new Date().toISOString(),
+      },
+    }));
+
+    return { message: 'Registration cancelled' };
   }
 }

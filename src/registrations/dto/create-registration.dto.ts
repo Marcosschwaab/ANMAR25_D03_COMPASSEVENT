@@ -1,1 +1,9 @@
-export class CreateRegistrationDto {}
+import { ApiProperty } from '@nestjs/swagger';
+import { IsNotEmpty, IsUUID } from 'class-validator';
+
+export class CreateRegistrationDto {
+  @ApiProperty()
+  @IsUUID()
+  @IsNotEmpty()
+  eventId: string;
+}
