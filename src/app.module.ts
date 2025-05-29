@@ -9,6 +9,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { RolesGuard } from './common/guards/roles.guard';
 import { JwtAuthGuard } from './auth/guard/jwt-auth.guard';
 import { EventsModule } from './events/events.module';
+import { RegistrationsModule } from './registrations/registrations.module';
 
 
 
@@ -19,6 +20,7 @@ import { EventsModule } from './events/events.module';
     UsersModule,
     AuthModule,
     EventsModule,
+    RegistrationsModule,
     ],
   controllers: [AppController],
   providers: [
