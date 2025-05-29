@@ -16,18 +16,18 @@ async function bootstrap() {
         type: 'http',
         scheme: 'bearer',
         bearerFormat: 'JWT',
-        name: 'access-token',
+       
         description: 'Enter JWT token',
-        in: 'header',
+        in: 'header', 
       },
-      'JWT-auth',
+      'access-token', 
     )
     .build();
 
-    
   const documentFactory = () => SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/v1/docs', app, documentFactory);
 
   await app.listen(process.env.PORT ?? 3000);
 }
 bootstrap();
+
