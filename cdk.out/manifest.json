@@ -1,0 +1,121 @@
+{
+  "version": "41.0.0",
+  "artifacts": {
+    "MyS3BucketStackCompassEvent.assets": {
+      "type": "cdk:asset-manifest",
+      "properties": {
+        "file": "MyS3BucketStackCompassEvent.assets.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+      }
+    },
+    "MyS3BucketStackCompassEvent": {
+      "type": "aws:cloudformation:stack",
+      "environment": "aws://unknown-account/unknown-region",
+      "properties": {
+        "templateFile": "MyS3BucketStackCompassEvent.template.json",
+        "terminationProtection": false,
+        "validateOnSynth": false,
+        "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-deploy-role-${AWS::AccountId}-${AWS::Region}",
+        "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-cfn-exec-role-${AWS::AccountId}-${AWS::Region}",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}/03de4f8c4feba278f3ab0cb906245bce1b19686a5f6cec2b8158a050801e2d90.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
+        "additionalDependencies": [
+          "MyS3BucketStackCompassEvent.assets"
+        ],
+        "lookupRole": {
+          "arn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-lookup-role-${AWS::AccountId}-${AWS::Region}",
+          "requiresBootstrapStackVersion": 8,
+          "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+        },
+        "stackName": "CompassEventS3Stack"
+      },
+      "dependencies": [
+        "MyS3BucketStackCompassEvent.assets"
+      ],
+      "metadata": {
+        "/MyS3BucketStackCompassEvent/UserProfilesNestBucket/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UserProfilesNestBucketE3A1F34E"
+          }
+        ],
+        "/MyS3BucketStackCompassEvent/UserProfilesNestBucket/Policy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UserProfilesNestBucketPolicyC09427D3"
+          }
+        ],
+        "/MyS3BucketStackCompassEvent/UserProfilesNestBucket/AutoDeleteObjectsCustomResource/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UserProfilesNestBucketAutoDeleteObjectsCustomResource2528ACD7"
+          }
+        ],
+        "/MyS3BucketStackCompassEvent/LatestNodeRuntimeMap": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LatestNodeRuntimeMap"
+          }
+        ],
+        "/MyS3BucketStackCompassEvent/Custom::S3AutoDeleteObjectsCustomResourceProvider": [
+          {
+            "type": "aws:cdk:is-custom-resource-handler-customResourceProvider",
+            "data": true
+          }
+        ],
+        "/MyS3BucketStackCompassEvent/Custom::S3AutoDeleteObjectsCustomResourceProvider/Role": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092"
+          }
+        ],
+        "/MyS3BucketStackCompassEvent/Custom::S3AutoDeleteObjectsCustomResourceProvider/Handler": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CustomS3AutoDeleteObjectsCustomResourceProviderHandler9D90184F"
+          }
+        ],
+        "/MyS3BucketStackCompassEvent/BucketNameOutput": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BucketNameOutput"
+          }
+        ],
+        "/MyS3BucketStackCompassEvent/CDKMetadata/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CDKMetadata"
+          }
+        ],
+        "/MyS3BucketStackCompassEvent/CDKMetadata/Condition": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CDKMetadataAvailable"
+          }
+        ],
+        "/MyS3BucketStackCompassEvent/BootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BootstrapVersion"
+          }
+        ],
+        "/MyS3BucketStackCompassEvent/CheckBootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CheckBootstrapVersion"
+          }
+        ]
+      },
+      "displayName": "MyS3BucketStackCompassEvent"
+    },
+    "Tree": {
+      "type": "cdk:tree",
+      "properties": {
+        "file": "tree.json"
+      }
+    }
+  },
+  "minimumCliVersion": "2.1005.0"
+}

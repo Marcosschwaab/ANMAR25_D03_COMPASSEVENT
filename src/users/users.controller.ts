@@ -25,7 +25,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { S3Service } from '../storage/s3.service';
 import { UuidValidationPipe } from '../common/pipes/uuid-validation.pipe'; 
 
-@ApiBearerAuth('JWT-auth')
+@ApiBearerAuth('access-token')
 @ApiTags('users')
 @Controller('users')
 export class UsersController {
