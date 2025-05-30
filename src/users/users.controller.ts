@@ -23,6 +23,7 @@ import { Public } from '../common/decorators/public.decorator';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { S3Service } from '../storage/s3.service';
+import { UuidValidationPipe } from '../common/pipes/uuid-validation.pipe';
 
 @ApiBearerAuth('JWT-auth')
 @ApiTags('users')
@@ -41,7 +42,10 @@ export class UsersController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Get(':id')
-  async findById(@Param('id') id: string, @Request() req) {
+  async findById(
+    @Param('id', UuidValidationPipe) id: string,
+    @Request() req,
+  ) {
     if (req.user.userId !== id && req.user.role !== 'admin') {
       throw new ForbiddenException('Access denied');
     }
@@ -50,7 +54,11 @@ export class UsersController {
 
   @UseGuards(JwtAuthGuard)
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() dto: UpdateUserDto, @Request() req) {
+  async update(
+    @Param('id', UuidValidationPipe) id: string,
+    @Body() dto: UpdateUserDto,
+    @Request() req,
+  ) {
     if (req.user.userId !== id) {
       throw new ForbiddenException('You can only update your own data');
     }
@@ -59,7 +67,10 @@ export class UsersController {
 
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
-  async softDelete(@Param('id') id: string, @Request() req) {
+  async softDelete(
+    @Param('id', UuidValidationPipe) id: string,
+    @Request() req,
+  ) {
     if (req.user.userId !== id && req.user.role !== 'admin') {
       throw new ForbiddenException('Only admin or the account owner can delete');
     }
@@ -93,7 +104,7 @@ export class UsersController {
     },
   })
   async uploadProfileImage(
-    @Param('id') id: string,
+    @Param('id', UuidValidationPipe) id: string,
     @UploadedFile() file: Express.Multer.File,
     @Request() req,
   ) {
