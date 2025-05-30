@@ -1,18 +1,29 @@
 import {
   Injectable,
   ConflictException,
-  NotFoundException,
 } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
 import * as bcrypt from 'bcrypt';
-import { User } from './entities/user.entity';
+import { User, UserRole } from './entities/user.entity';
 import {
   PutCommand,
   ScanCommand,
   UpdateCommand,
+  ScanCommandInput,
 } from '@aws-sdk/lib-dynamodb';
 import { ddbDocClient } from '../database/dynamodb.client';
 import { UpdateUserDto } from './dto/update-user.dto';
+
+export interface PaginatedUsersResult {
+  items: Omit<User, 'password'>[];
+  meta: {
+    totalItems: number;
+    itemCount: number;
+    itemsPerPage?: number;
+    totalPages?: number;
+    currentPage?: number;
+  };
+}
 
 @Injectable()
 export class UsersService {
@@ -46,45 +57,107 @@ export class UsersService {
 
     return user;
   }
-  async list(filters: { name?: string; email?: string; role?: string }) {
-  const filterExpressions: string[] = [];
-  const attributeValues: Record<string, any> = {};
 
-  if (filters.name) {
-    filterExpressions.push('contains(#n, :name)');
-    attributeValues[':name'] = filters.name;
-  }
+  async list(
+    filters: { name?: string; email?: string; role?: string },
+    requestingUserRole: UserRole,
+    page?: number,
+    limit?: number,
+  ): Promise<PaginatedUsersResult> {
+    const filterExpressions: string[] = [];
+    const attributeValues: Record<string, any> = {};
+    const expressionAttributeNames: Record<string, string> = {};
 
-  if (filters.email) {
-    filterExpressions.push('contains(#e, :email)');
-    attributeValues[':email'] = filters.email;
-  }
+    if (requestingUserRole === UserRole.ORGANIZER) {
+      filterExpressions.push('#r = :roleForOrganizer');
+      attributeValues[':roleForOrganizer'] = UserRole.PARTICIPANT;
+      expressionAttributeNames['#r'] = 'role';
+    } else if (requestingUserRole === UserRole.ADMIN) {
+      if (filters.role) {
+        filterExpressions.push('#r = :roleFromFilter');
+        attributeValues[':roleFromFilter'] = filters.role;
+        expressionAttributeNames['#r'] = 'role';
+      }
+    }
+    
+    if (filters.name) {
+      filterExpressions.push('contains(#n, :name)');
+      attributeValues[':name'] = filters.name;
+      expressionAttributeNames['#n'] = 'name';
+    }
 
-  if (filters.role) {
-    filterExpressions.push('#r = :role');
-    attributeValues[':role'] = filters.role;
-  }
+    if (filters.email) {
+      filterExpressions.push('contains(#e, :email)');
+      attributeValues[':email'] = filters.email;
+      expressionAttributeNames['#e'] = 'email';
+    }
 
-  filterExpressions.push('attribute_not_exists(deletedAt)');
+    filterExpressions.push('attribute_not_exists(deletedAt)');
 
-  const result = await ddbDocClient.send(
-    new ScanCommand({
+    const scanParams: ScanCommandInput = {
       TableName: this.tableName,
-      FilterExpression: filterExpressions.join(' AND '),
-      ExpressionAttributeNames: {
-        '#n': 'name',
-        '#e': 'email',
-        '#r': 'role',
-      },
-      ExpressionAttributeValues: attributeValues,
-    }),
-  );
+    };
 
-  return result.Items?.map((u) => {
-    const { password, ...user } = u;
-    return user;
-  });
-}
+    if (filterExpressions.length > 0) {
+      scanParams.FilterExpression = filterExpressions.join(' AND ');
+    }
+    if (Object.keys(attributeValues).length > 0) {
+      scanParams.ExpressionAttributeValues = attributeValues;
+    }
+    if (Object.keys(expressionAttributeNames).length > 0) {
+      scanParams.ExpressionAttributeNames = expressionAttributeNames;
+    }
+    
+    let allItems: any[] = [];
+    let lastEvaluatedKey;
+    do {
+      const currentScanParams = { ...scanParams };
+      if (lastEvaluatedKey) {
+        currentScanParams.ExclusiveStartKey = lastEvaluatedKey;
+      }
+      const command = new ScanCommand(currentScanParams);
+      const result = await ddbDocClient.send(command);
+      if (result.Items) {
+        allItems = allItems.concat(result.Items);
+      }
+      lastEvaluatedKey = result.LastEvaluatedKey;
+    } while (lastEvaluatedKey);
+
+    const usersWithoutPassword = allItems.map((u) => {
+      const { password, ...user } = u;
+      return user;
+    });
+
+    const totalItems = usersWithoutPassword.length;
+
+    if (page && limit && page > 0 && limit > 0) {
+      const startIndex = (page - 1) * limit;
+      const paginatedItems = usersWithoutPassword.slice(startIndex, startIndex + limit);
+      const totalPages = Math.ceil(totalItems / limit);
+
+      return {
+        items: paginatedItems,
+        meta: {
+          totalItems,
+          itemCount: paginatedItems.length,
+          itemsPerPage: limit,
+          totalPages,
+          currentPage: page,
+        },
+      };
+    }
+
+    return {
+      items: usersWithoutPassword,
+      meta: {
+        totalItems,
+        itemCount: totalItems,
+        itemsPerPage: totalItems > 0 ? totalItems : undefined,
+        totalPages: 1,
+        currentPage: 1,
+      },
+    };
+  }
 
   async findByEmail(email: string): Promise<User | null> {
     const result = await ddbDocClient.send(
@@ -136,6 +209,12 @@ export class UsersService {
       attributeNames['#p'] = 'phone';
       attributeValues[':phone'] = data.phone;
     }
+    
+    if (data.profileImageUrl) {
+        updateFields.push('#piu = :profileImageUrl');
+        attributeNames['#piu'] = 'profileImageUrl';
+        attributeValues[':profileImageUrl'] = data.profileImageUrl;
+    }
 
     if (data.password) {
       const hashedPassword = await bcrypt.hash(data.password, 10);
@@ -175,4 +254,3 @@ export class UsersService {
     );
   }
 }
-
