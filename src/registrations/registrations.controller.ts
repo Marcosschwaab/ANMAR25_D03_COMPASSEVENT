@@ -20,6 +20,7 @@ import {
   ApiOperation,
   ApiResponse,
 } from '@nestjs/swagger';
+import { UuidValidationPipe } from '../common/pipes/uuid-validation.pipe';
 
 @ApiTags('registrations')
 @ApiBearerAuth('access-token')
@@ -45,14 +46,21 @@ export class RegistrationsController {
     @Query('limit') limit: number = 10,
     @Query('startKey') startKey?: string,
   ) {
-    return this.registrationsService.findAllByParticipant(req.user.userId, limit, startKey);
+    return this.registrationsService.findAllByParticipant(
+      req.user.userId,
+      limit,
+      startKey,
+    );
   }
 
   @Delete(':id')
   @ApiOperation({ summary: 'Cancel (soft delete) a registration by ID' })
   @ApiResponse({ status: 200, description: 'Registration cancelled' })
   @ApiResponse({ status: 404, description: 'Registration not found' })
-  async cancel(@Param('id') id: string, @Request() req) {
+  async cancel(
+    @Param('id', UuidValidationPipe) id: string,
+    @Request() req,
+  ) {
     return this.registrationsService.softDelete(id, req.user.userId);
   }
 }
