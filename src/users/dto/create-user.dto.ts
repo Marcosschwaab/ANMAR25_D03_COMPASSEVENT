@@ -6,8 +6,11 @@ import {
   MinLength,
   IsOptional,
   IsString,
+  Validate,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { UserRole } from '../entities/user.entity';
+import { RoleValidationPipe } from '../../common/pipes/role-validation.pipe';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateUserDto {
@@ -55,6 +58,8 @@ export class CreateUserDto {
     required: true,
   })
   @IsEnum(UserRole)
+  @Transform(({ value }) => value.toLowerCase()) 
+  @Validate(RoleValidationPipe)
   role: UserRole;
 
   @ApiPropertyOptional({
