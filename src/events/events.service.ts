@@ -11,24 +11,25 @@ import {
   UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { ddbDocClient } from '../database/dynamodb.client';
+import { CreateEventDto } from './dto/create-event.dto';
 
 @Injectable()
 export class EventsService {
   private tableName = 'Events';
 
-  async create(data: any, imageUrl: string): Promise<Event> {
-    const existing = await this.findByName(data.name);
+  async create(eventDto: CreateEventDto, organizerId: string, imageUrl: string): Promise<Event> {
+    const existing = await this.findByName(eventDto.name);
     if (existing) {
       throw new ConflictException('Event name already exists');
     }
 
     const event: Event = {
       id: uuidv4(),
-      name: data.name,
-      description: data.description,
-      date: data.date,
+      name: eventDto.name,
+      description: eventDto.description,
+      date: eventDto.date,
       imageUrl,
-      organizerId: data.organizerId,
+      organizerId: organizerId,
       status: 'active',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -48,12 +49,14 @@ export class EventsService {
     const result = await ddbDocClient.send(
       new ScanCommand({
         TableName: this.tableName,
-        FilterExpression: '#n = :name',
+        FilterExpression: '#n = :name AND attribute_not_exists(deletedAt) AND #s <> :inactiveStatus',
         ExpressionAttributeNames: {
           '#n': 'name',
+          '#s': 'status',
         },
         ExpressionAttributeValues: {
           ':name': name,
+          ':inactiveStatus': 'inactive',
         },
       }),
     );
@@ -65,7 +68,7 @@ export class EventsService {
     const result = await ddbDocClient.send(
       new ScanCommand({
         TableName: this.tableName,
-        FilterExpression: 'id = :id',
+        FilterExpression: 'id = :id AND attribute_not_exists(deletedAt)',
         ExpressionAttributeValues: {
           ':id': id,
         },
@@ -76,47 +79,87 @@ export class EventsService {
     if (!event) {
       throw new NotFoundException('Event not found');
     }
-
     return event;
   }
 
   async update(id: string, updates: Partial<Event>): Promise<void> {
+    const eventToUpdate = await this.findById(id);
+    if (!eventToUpdate) {
+        throw new NotFoundException('Event not found, cannot update.');
+    }
+
     const now = new Date().toISOString();
+    const updateExpressionParts: string[] = [];
+    const expressionAttributeNames: Record<string, string> = {};
+    const expressionAttributeValues: Record<string, any> = {};
+
+    if (updates.name !== undefined) {
+        updateExpressionParts.push('#n = :n');
+        expressionAttributeNames['#n'] = 'name';
+        expressionAttributeValues[':n'] = updates.name;
+    }
+    if (updates.description !== undefined) {
+        updateExpressionParts.push('#d = :d');
+        expressionAttributeNames['#d'] = 'description';
+        expressionAttributeValues[':d'] = updates.description;
+    }
+    if (updates.date !== undefined) {
+        updateExpressionParts.push('#dt = :dt');
+        expressionAttributeNames['#dt'] = 'date';
+        expressionAttributeValues[':dt'] = updates.date;
+    }
+    if (updates.organizerId !== undefined) {
+        updateExpressionParts.push('#o = :o');
+        expressionAttributeNames['#o'] = 'organizerId';
+        expressionAttributeValues[':o'] = updates.organizerId;
+    }
+    if (updates.imageUrl !== undefined) {
+        updateExpressionParts.push('#iu = :iu');
+        expressionAttributeNames['#iu'] = 'imageUrl';
+        expressionAttributeValues[':iu'] = updates.imageUrl;
+    }
+     if (updates.status !== undefined) {
+        updateExpressionParts.push('#s = :s');
+        expressionAttributeNames['#s'] = 'status';
+        expressionAttributeValues[':s'] = updates.status;
+    }
+
+    if (updateExpressionParts.length === 0) {
+        return;
+    }
+
+    updateExpressionParts.push('updatedAt = :u');
+    expressionAttributeValues[':u'] = now;
 
     await ddbDocClient.send(
       new UpdateCommand({
         TableName: this.tableName,
         Key: { id },
-        UpdateExpression:
-          'SET #n = :n, #d = :d, #dt = :dt, #o = :o, updatedAt = :u',
-        ExpressionAttributeNames: {
-          '#n': 'name',
-          '#d': 'description',
-          '#dt': 'date',
-          '#o': 'organizerId',
-        },
-        ExpressionAttributeValues: {
-          ':n': updates.name,
-          ':d': updates.description,
-          ':dt': updates.date,
-          ':o': updates.organizerId,
-          ':u': now,
-        },
+        UpdateExpression: `SET ${updateExpressionParts.join(', ')}`,
+        ExpressionAttributeNames: expressionAttributeNames,
+        ExpressionAttributeValues: expressionAttributeValues,
+        ReturnValues: "UPDATED_NEW",
       }),
     );
   }
 
   async softDelete(id: string): Promise<void> {
+    const eventToDelete = await this.findById(id);
+    if (!eventToDelete) {
+        throw new NotFoundException('Event not found, cannot delete.');
+    }
+
     await ddbDocClient.send(
       new UpdateCommand({
         TableName: this.tableName,
         Key: { id },
-        UpdateExpression: 'SET #s = :s',
+        UpdateExpression: 'SET #s = :s, deletedAt = :da',
         ExpressionAttributeNames: {
           '#s': 'status',
         },
         ExpressionAttributeValues: {
           ':s': 'inactive',
+          ':da': new Date().toISOString(),
         },
       }),
     );
@@ -127,38 +170,39 @@ export class EventsService {
     limit = 10,
     startKey?: any,
   ) {
-    let FilterExpression = '';
+    let FilterExpression = 'attribute_not_exists(deletedAt)';
     const ExpressionAttributeValues: Record<string, any> = {};
     const ExpressionAttributeNames: Record<string, string> = {};
 
     if (filters.name) {
-      FilterExpression += 'contains(#n, :name)';
+      FilterExpression += ' AND contains(#n, :name)';
       ExpressionAttributeNames['#n'] = 'name';
       ExpressionAttributeValues[':name'] = filters.name;
     }
 
     if (filters.date) {
-      FilterExpression += (FilterExpression ? ' AND ' : '') + '#d >= :date';
+      FilterExpression += ' AND #d >= :date';
       ExpressionAttributeNames['#d'] = 'date';
       ExpressionAttributeValues[':date'] = filters.date;
     }
 
     if (filters.status) {
-      FilterExpression += (FilterExpression ? ' AND ' : '') + '#s = :status';
+      FilterExpression += ' AND #s = :status';
       ExpressionAttributeNames['#s'] = 'status';
       ExpressionAttributeValues[':status'] = filters.status;
+    } else {
+      FilterExpression += ' AND #s = :activeStatus';
+      ExpressionAttributeNames['#s'] = 'status';
+      ExpressionAttributeValues[':activeStatus'] = 'active';
     }
 
     const params: any = {
       TableName: this.tableName,
       Limit: limit,
+      FilterExpression: FilterExpression,
+      ExpressionAttributeValues: Object.keys(ExpressionAttributeValues).length > 0 ? ExpressionAttributeValues : undefined,
+      ExpressionAttributeNames: Object.keys(ExpressionAttributeNames).length > 0 ? ExpressionAttributeNames : undefined,
     };
-
-    if (FilterExpression) {
-      params.FilterExpression = FilterExpression;
-      params.ExpressionAttributeValues = ExpressionAttributeValues;
-      params.ExpressionAttributeNames = ExpressionAttributeNames;
-    }
 
     if (startKey) {
       params.ExclusiveStartKey = startKey;

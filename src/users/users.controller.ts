@@ -23,7 +23,7 @@ import { Public } from '../common/decorators/public.decorator';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { S3Service } from '../storage/s3.service';
-import { UuidValidationPipe } from '../common/pipes/uuid-validation.pipe';
+import { UuidValidationPipe } from '../common/pipes/uuid-validation.pipe'; 
 
 @ApiBearerAuth('JWT-auth')
 @ApiTags('users')
@@ -42,11 +42,8 @@ export class UsersController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Get(':id')
-  async findById(
-    @Param('id', UuidValidationPipe) id: string,
-    @Request() req,
-  ) {
-    if (req.user.userId !== id && req.user.role !== 'admin') {
+  async findById(@Param('id', UuidValidationPipe) id: string, @Request() req) {
+    if (req.user.id !== id && req.user.role !== 'admin') {
       throw new ForbiddenException('Access denied');
     }
     return this.usersService.findById(id);
@@ -54,24 +51,17 @@ export class UsersController {
 
   @UseGuards(JwtAuthGuard)
   @Patch(':id')
-  async update(
-    @Param('id', UuidValidationPipe) id: string,
-    @Body() dto: UpdateUserDto,
-    @Request() req,
-  ) {
-    if (req.user.userId !== id) {
-      throw new ForbiddenException('You can only update your own data');
+  async update(@Param('id', UuidValidationPipe) id: string, @Body() dto: UpdateUserDto, @Request() req) { 
+    if (req.user.id !== id && req.user.role !== 'admin') {
+      throw new ForbiddenException('You can only update your own data or an admin can update any user.');
     }
     return this.usersService.update(id, dto);
   }
 
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
-  async softDelete(
-    @Param('id', UuidValidationPipe) id: string,
-    @Request() req,
-  ) {
-    if (req.user.userId !== id && req.user.role !== 'admin') {
+  async softDelete(@Param('id', UuidValidationPipe) id: string, @Request() req) {
+    if (req.user.id !== id && req.user.role !== 'admin') {
       throw new ForbiddenException('Only admin or the account owner can delete');
     }
     return this.usersService.softDelete(id);
@@ -81,9 +71,9 @@ export class UsersController {
   @Roles('admin')
   @Get()
   async listUsers(
-    @Query('name') name: string,
-    @Query('email') email: string,
-    @Query('role') role: string,
+    @Query('name') name?: string,
+    @Query('email') email?: string,
+    @Query('role') role?: string,
   ) {
     return this.usersService.list({ name, email, role });
   }
@@ -104,12 +94,12 @@ export class UsersController {
     },
   })
   async uploadProfileImage(
-    @Param('id', UuidValidationPipe) id: string,
+    @Param('id', UuidValidationPipe) id: string, 
     @UploadedFile() file: Express.Multer.File,
     @Request() req,
   ) {
-    if (req.user.userId !== id && req.user.role !== 'admin') {
-      throw new ForbiddenException('You can only upload your own profile image');
+    if (req.user.id !== id && req.user.role !== 'admin') {
+      throw new ForbiddenException('You can only upload your own profile image or an admin can update any user.');
     }
 
     const imageUrl = await this.s3Service.uploadImage(file, id);

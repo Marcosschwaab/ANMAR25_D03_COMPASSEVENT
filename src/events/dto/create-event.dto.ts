@@ -23,11 +23,4 @@ export class CreateEventDto {
   })
   @IsDateString()
   date: string;
-
-  @ApiProperty({
-    example: 'a1b2c3d4-5678-90ab-cdef-1234567890ab',
-    description: 'ID of the user who organizes the event',
-  })
-  @IsNotEmpty()
-  organizerId: string;
 }

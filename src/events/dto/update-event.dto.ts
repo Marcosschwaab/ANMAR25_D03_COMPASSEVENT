@@ -27,12 +27,4 @@ export class UpdateEventDto {
   @IsOptional()
   @IsDateString()
   date?: string;
-
-  @ApiPropertyOptional({
-    example: 'updated-organizer-id-uuid',
-    description: 'New organizer ID',
-  })
-  @IsOptional()
-  @IsString()
-  organizerId?: string;
 }
