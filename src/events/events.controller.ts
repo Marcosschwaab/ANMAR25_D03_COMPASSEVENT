@@ -10,6 +10,8 @@ import {
   UseGuards,
   Request,
   ForbiddenException,
+  ParseIntPipe, 
+  DefaultValuePipe, 
 } from '@nestjs/common';
 import { EventsService } from './events.service';
 import { CreateEventDto } from './dto/create-event.dto';
@@ -17,8 +19,8 @@ import { UpdateEventDto } from './dto/update-event.dto';
 import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { UuidValidationPipe } from '../common/pipes/uuid-validation.pipe'; 
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger'; // Import ApiQuery
+import { UuidValidationPipe } from '../common/pipes/uuid-validation.pipe';
 
 @ApiTags('events')
 @ApiBearerAuth('access-token')
@@ -45,8 +47,9 @@ export class EventsController {
 
   @Roles('admin', 'organizer')
   @Patch(':id')
+  @ApiOperation({ summary: 'Update an event' })
   async update(
-    @Param('id', UuidValidationPipe) id: string, 
+    @Param('id', UuidValidationPipe) id: string,
     @Body() body: UpdateEventDto,
     @Request() req,
   ) {
@@ -60,18 +63,35 @@ export class EventsController {
   }
 
   @Get()
-  async list(@Query() query) {
-    return this.eventsService.list(query);
+  @ApiOperation({ summary: 'List events with filters and pagination' })
+  @ApiQuery({ name: 'name', required: false, description: 'Filter by part of the event name', type: String })
+  @ApiQuery({ name: 'date', required: false, description: 'Filter events occurring on or after this date (ISO date string)', type: String, example: '2025-12-01' })
+  @ApiQuery({ name: 'status', required: false, description: 'Filter by event status (active or inactive). Defaults to active if not provided.', enum: ['active', 'inactive'] })
+  @ApiQuery({ name: 'limit', required: false, description: 'Number of events to return per page', type: Number, example: 10 })
+  @ApiQuery({ name: 'startKey', required: false, description: 'Token for the next page of results (ExclusiveStartKey from previous response)', type: String })
+  async list(
+    @Query('name') name?: string,
+    @Query('date') date?: string,
+    @Query('status') status?: 'active' | 'inactive',
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit?: number, 
+    @Query('startKey') startKey?: string,
+  ) {
+    const filters = { name, date, status };
+    Object.keys(filters).forEach(key => filters[key] === undefined && delete filters[key]);
+
+    return this.eventsService.list(filters, limit, startKey);
   }
 
   @Get(':id')
-  async find(@Param('id', UuidValidationPipe) id: string) { 
+  @ApiOperation({ summary: 'Find an event by ID' })
+  async find(@Param('id', UuidValidationPipe) id: string) {
     return this.eventsService.findById(id);
   }
 
   @Roles('admin', 'organizer')
   @Delete(':id')
-  async delete(@Param('id', UuidValidationPipe) id: string, @Request() req) { 
+  @ApiOperation({ summary: 'Soft delete an event' })
+  async delete(@Param('id', UuidValidationPipe) id: string, @Request() req) {
     const userIdFromToken = req.user.id;
     const event = await this.eventsService.findById(id);
 

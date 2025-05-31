@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
-import { Event } from './entities/event.entity';
+import { Event, EventStatus } from './entities/event.entity';
 import {
   PutCommand,
   ScanCommand,
@@ -30,7 +30,7 @@ export class EventsService {
       date: eventDto.date,
       imageUrl,
       organizerId: organizerId,
-      status: 'active',
+      status: 'active' as EventStatus,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -56,7 +56,7 @@ export class EventsService {
         },
         ExpressionAttributeValues: {
           ':name': name,
-          ':inactiveStatus': 'inactive',
+          ':inactiveStatus': 'inactive' as EventStatus,
         },
       }),
     );
@@ -83,6 +83,7 @@ export class EventsService {
   }
 
   async update(id: string, updates: Partial<Event>): Promise<void> {
+   
     const eventToUpdate = await this.findById(id);
     if (!eventToUpdate) {
         throw new NotFoundException('Event not found, cannot update.');
@@ -125,10 +126,10 @@ export class EventsService {
     }
 
     if (updateExpressionParts.length === 0) {
-        return;
+        return; 
     }
 
-    updateExpressionParts.push('updatedAt = :u');
+    updateExpressionParts.push('updatedAt = :u'); 
     expressionAttributeValues[':u'] = now;
 
     await ddbDocClient.send(
@@ -144,6 +145,7 @@ export class EventsService {
   }
 
   async softDelete(id: string): Promise<void> {
+
     const eventToDelete = await this.findById(id);
     if (!eventToDelete) {
         throw new NotFoundException('Event not found, cannot delete.');
@@ -158,7 +160,7 @@ export class EventsService {
           '#s': 'status',
         },
         ExpressionAttributeValues: {
-          ':s': 'inactive',
+          ':s': 'inactive' as EventStatus,
           ':da': new Date().toISOString(),
         },
       }),
@@ -166,43 +168,62 @@ export class EventsService {
   }
 
   async list(
-    filters: { name?: string; date?: string; status?: string },
+    filters: { name?: string; date?: string; status?: EventStatus },
     limit = 10,
     startKey?: any,
   ) {
-    let FilterExpression = 'attribute_not_exists(deletedAt)';
+    const filterParts: string[] = [];
     const ExpressionAttributeValues: Record<string, any> = {};
     const ExpressionAttributeNames: Record<string, string> = {};
 
+    if (filters.status === 'inactive') {
+
+      filterParts.push('#s = :statusValue');
+      ExpressionAttributeNames['#s'] = 'status';
+      ExpressionAttributeValues[':statusValue'] = 'inactive';
+    } else if (filters.status === 'active') {
+
+      filterParts.push('attribute_not_exists(deletedAt)');
+      filterParts.push('#s = :statusValue');
+      ExpressionAttributeNames['#s'] = 'status';
+      ExpressionAttributeValues[':statusValue'] = 'active';
+    } else {
+
+      filterParts.push('attribute_not_exists(deletedAt)');
+      filterParts.push('#s = :statusValue');
+      ExpressionAttributeNames['#s'] = 'status';
+      ExpressionAttributeValues[':statusValue'] = 'active';
+    }
+
     if (filters.name) {
-      FilterExpression += ' AND contains(#n, :name)';
-      ExpressionAttributeNames['#n'] = 'name';
-      ExpressionAttributeValues[':name'] = filters.name;
+      filterParts.push('contains(#filterName, :nameValue)'); 
+      ExpressionAttributeNames['#filterName'] = 'name'; 
+      ExpressionAttributeValues[':nameValue'] = filters.name;
     }
 
     if (filters.date) {
-      FilterExpression += ' AND #d >= :date';
-      ExpressionAttributeNames['#d'] = 'date';
-      ExpressionAttributeValues[':date'] = filters.date;
-    }
-
-    if (filters.status) {
-      FilterExpression += ' AND #s = :status';
-      ExpressionAttributeNames['#s'] = 'status';
-      ExpressionAttributeValues[':status'] = filters.status;
-    } else {
-      FilterExpression += ' AND #s = :activeStatus';
-      ExpressionAttributeNames['#s'] = 'status';
-      ExpressionAttributeValues[':activeStatus'] = 'active';
+      filterParts.push('#filterDate >= :dateValue');
+      ExpressionAttributeNames['#filterDate'] = 'date'; 
+      ExpressionAttributeValues[':dateValue'] = filters.date;
     }
 
     const params: any = {
       TableName: this.tableName,
       Limit: limit,
-      FilterExpression: FilterExpression,
-      ExpressionAttributeValues: Object.keys(ExpressionAttributeValues).length > 0 ? ExpressionAttributeValues : undefined,
-      ExpressionAttributeNames: Object.keys(ExpressionAttributeNames).length > 0 ? ExpressionAttributeNames : undefined,
     };
+
+    if (filterParts.length > 0) {
+      params.FilterExpression = filterParts.join(' AND ');
+    }
+
+    if (Object.keys(ExpressionAttributeValues).length > 0) {
+      params.ExpressionAttributeValues = ExpressionAttributeValues;
+    }
+ 
+    if (Object.keys(ExpressionAttributeNames).length > 0 && filterParts.length > 0) {
+      params.ExpressionAttributeNames = ExpressionAttributeNames;
+    }
+
 
     if (startKey) {
       params.ExclusiveStartKey = startKey;
