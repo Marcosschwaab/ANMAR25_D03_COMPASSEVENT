@@ -3,6 +3,7 @@
 /node_modules
 /build
 /docker/dynamodb
+/cdk.out
 
 # Logs
 logs
