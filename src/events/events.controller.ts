@@ -10,8 +10,6 @@ import {
   UseGuards,
   Request,
   ForbiddenException,
-  ParseIntPipe, 
-  DefaultValuePipe, 
 } from '@nestjs/common';
 import { EventsService } from './events.service';
 import { CreateEventDto } from './dto/create-event.dto';
@@ -19,8 +17,9 @@ import { UpdateEventDto } from './dto/update-event.dto';
 import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger'; // Import ApiQuery
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UuidValidationPipe } from '../common/pipes/uuid-validation.pipe';
+import { ListEventsQueryDto } from './dto/list-events-query.dto';
 
 @ApiTags('events')
 @ApiBearerAuth('access-token')
@@ -64,21 +63,16 @@ export class EventsController {
 
   @Get()
   @ApiOperation({ summary: 'List events with filters and pagination' })
-  @ApiQuery({ name: 'name', required: false, description: 'Filter by part of the event name', type: String })
-  @ApiQuery({ name: 'date', required: false, description: 'Filter events occurring on or after this date (ISO date string)', type: String, example: '2025-12-01' })
-  @ApiQuery({ name: 'status', required: false, description: 'Filter by event status (active or inactive). Defaults to active if not provided.', enum: ['active', 'inactive'] })
-  @ApiQuery({ name: 'limit', required: false, description: 'Number of events to return per page', type: Number, example: 10 })
-  @ApiQuery({ name: 'startKey', required: false, description: 'Token for the next page of results (ExclusiveStartKey from previous response)', type: String })
-  async list(
-    @Query('name') name?: string,
-    @Query('date') date?: string,
-    @Query('status') status?: 'active' | 'inactive',
-    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit?: number, 
-    @Query('startKey') startKey?: string,
-  ) {
+  async list(@Query() queryDto: ListEventsQueryDto) {
+    const { name, date, status, limit, startKey } = queryDto;
     const filters = { name, date, status };
-    Object.keys(filters).forEach(key => filters[key] === undefined && delete filters[key]);
-
+    
+    Object.keys(filters).forEach(key => {
+        if (filters[key] === undefined) {
+            delete filters[key];
+        }
+    });
+    
     return this.eventsService.list(filters, limit, startKey);
   }
 
