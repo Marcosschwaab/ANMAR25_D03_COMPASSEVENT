@@ -19,15 +19,16 @@ export class S3Service {
       credentials: {
         accessKeyId: process.env.AWS_ACCESS_KEY_ID || 'fake',
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || 'fake',
-        sessionToken: process.env.AWS_SESSION_TOKEN || undefined, 
+        sessionToken: process.env.AWS_SESSION_TOKEN || undefined,
       },
       endpoint: process.env.S3_ENDPOINT || undefined,
       forcePathStyle: true,
     });
   }
 
-  async uploadImage(file: Express.Multer.File, userId: string): Promise<string> {
-    const key = `profiles/${userId}/${randomUUID()}_${file.originalname}`;
+  async uploadImage(file: Express.Multer.File, entityId: string, pathPrefix: string = 'general'): Promise<string> {
+    const prefix = pathPrefix && !pathPrefix.endsWith('/') ? `${pathPrefix}/` : pathPrefix;
+    const key = `${prefix}${entityId}/${randomUUID()}_${file.originalname}`;
 
     try {
       await this.s3.send(
@@ -39,7 +40,13 @@ export class S3Service {
         }),
       );
 
-      const imageUrl = `https://${this.bucketName}.s3.amazonaws.com/${key}`;
+      let imageUrl: string;
+      if (process.env.S3_ENDPOINT) {
+        const endpointUrl = process.env.S3_ENDPOINT.endsWith('/') ? process.env.S3_ENDPOINT : `${process.env.S3_ENDPOINT}/`;
+        imageUrl = `${endpointUrl}${this.bucketName}/${key}`;
+      } else {
+        imageUrl = `https://${this.bucketName}.s3.${process.env.AWS_REGION || 'us-east-1'}.amazonaws.com/${key}`;
+      }
       return imageUrl;
     } catch (error) {
       console.error('S3 upload error:', error);

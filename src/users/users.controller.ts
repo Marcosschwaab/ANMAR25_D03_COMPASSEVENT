@@ -49,12 +49,13 @@ export class UsersController {
     @UploadedFile(new SpecificOptionalImageValidationPipe()) file?: Express.Multer.File,
   ) {
     let profileImageUrl: string | undefined;
-    const { file: _, ...userData } = createUserDto;
+    const { file: _fileBody, ...userData } = createUserDto;
 
     if (file) {
-      profileImageUrl = await this.s3Service.uploadImage(file, 'temp-user-id');
+      profileImageUrl = await this.s3Service.uploadImage(file, 'temp-user-id', 'profiles');
     }
     const user = await this.usersService.create(userData, profileImageUrl);
+
     if (profileImageUrl && user && user.id && profileImageUrl.includes('temp-user-id')) {
         const finalImageUrl = profileImageUrl.replace('temp-user-id', user.id);
         await this.usersService.update(user.id, { profileImageUrl: finalImageUrl });
@@ -87,11 +88,11 @@ export class UsersController {
       throw new ForbiddenException('You can only update your own data or an admin can update any user.');
     }
 
-    const { file: _, ...userData } = updateUserDto;
+    const { file: _fileBody, ...userData } = updateUserDto;
     const updatePayload: Partial<UpdateUserDto & { profileImageUrl?: string }> = { ...userData };
 
     if (file) {
-      updatePayload.profileImageUrl = await this.s3Service.uploadImage(file, id);
+      updatePayload.profileImageUrl = await this.s3Service.uploadImage(file, id, 'profiles');
     }
 
     await this.usersService.update(id, updatePayload);

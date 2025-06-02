@@ -1,5 +1,6 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsDateString, IsNotEmpty, IsString, MinLength } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsDateString, IsNotEmpty, IsString, MinLength, IsOptional } from 'class-validator';
+import { Express } from 'express';
 
 export class CreateEventDto {
   @ApiProperty({
@@ -23,4 +24,12 @@ export class CreateEventDto {
   })
   @IsDateString()
   date: string;
+
+  @ApiPropertyOptional({
+    type: 'string',
+    format: 'binary',
+    description: 'Optional event image file to upload.',
+  })
+  @IsOptional()
+  file?: Express.Multer.File;
 }

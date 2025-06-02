@@ -12,19 +12,31 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 import { ddbDocClient } from '../database/dynamodb.client';
 import { CreateEventDto } from './dto/create-event.dto';
+import { UpdateEventDto } from './dto/update-event.dto';
+import { S3Service } from '../storage/s3.service';
+import { Express } from 'express';
 
 @Injectable()
 export class EventsService {
   private tableName = 'Events';
 
-  async create(eventDto: CreateEventDto, organizerId: string, imageUrl: string): Promise<Event> {
+  constructor(private readonly s3Service: S3Service) {}
+
+  async create(eventDto: Omit<CreateEventDto, 'file'>, organizerId: string, file?: Express.Multer.File): Promise<Event> {
     const existing = await this.findByName(eventDto.name);
     if (existing) {
       throw new ConflictException('Event name already exists');
     }
 
+    const eventId = uuidv4();
+    let imageUrl = 'https://default-event-image.com/placeholder.png';
+
+    if (file) {
+      imageUrl = await this.s3Service.uploadImage(file, eventId, 'events');
+    }
+
     const event: Event = {
-      id: uuidv4(),
+      id: eventId,
       name: eventDto.name,
       description: eventDto.description,
       date: eventDto.date,
@@ -82,55 +94,50 @@ export class EventsService {
     return event;
   }
 
-  async update(id: string, updates: Partial<Event>): Promise<void> {
-   
+  async update(id: string, updates: Omit<UpdateEventDto, 'file'>, file?: Express.Multer.File): Promise<Event> {
     const eventToUpdate = await this.findById(id);
-    if (!eventToUpdate) {
-        throw new NotFoundException('Event not found, cannot update.');
-    }
 
-    const now = new Date().toISOString();
     const updateExpressionParts: string[] = [];
     const expressionAttributeNames: Record<string, string> = {};
     const expressionAttributeValues: Record<string, any> = {};
 
-    if (updates.name !== undefined) {
+    let newImageUrl = updates.imageUrl;
+
+    if (file) {
+      newImageUrl = await this.s3Service.uploadImage(file, id, 'events');
+    }
+
+    if (newImageUrl !== undefined && newImageUrl !== eventToUpdate.imageUrl) {
+        updateExpressionParts.push('#iu = :iu');
+        expressionAttributeNames['#iu'] = 'imageUrl';
+        expressionAttributeValues[':iu'] = newImageUrl;
+    }
+
+    if (updates.name !== undefined && updates.name !== eventToUpdate.name) {
         updateExpressionParts.push('#n = :n');
         expressionAttributeNames['#n'] = 'name';
         expressionAttributeValues[':n'] = updates.name;
     }
-    if (updates.description !== undefined) {
+    if (updates.description !== undefined && updates.description !== eventToUpdate.description) {
         updateExpressionParts.push('#d = :d');
         expressionAttributeNames['#d'] = 'description';
         expressionAttributeValues[':d'] = updates.description;
     }
-    if (updates.date !== undefined) {
+    if (updates.date !== undefined && updates.date !== eventToUpdate.date) {
         updateExpressionParts.push('#dt = :dt');
         expressionAttributeNames['#dt'] = 'date';
         expressionAttributeValues[':dt'] = updates.date;
     }
-    if (updates.organizerId !== undefined) {
-        updateExpressionParts.push('#o = :o');
-        expressionAttributeNames['#o'] = 'organizerId';
-        expressionAttributeValues[':o'] = updates.organizerId;
-    }
-    if (updates.imageUrl !== undefined) {
-        updateExpressionParts.push('#iu = :iu');
-        expressionAttributeNames['#iu'] = 'imageUrl';
-        expressionAttributeValues[':iu'] = updates.imageUrl;
-    }
-     if (updates.status !== undefined) {
-        updateExpressionParts.push('#s = :s');
-        expressionAttributeNames['#s'] = 'status';
-        expressionAttributeValues[':s'] = updates.status;
-    }
 
     if (updateExpressionParts.length === 0) {
-        return; 
+        if (newImageUrl === eventToUpdate.imageUrl) {
+             return eventToUpdate;
+        }
     }
 
-    updateExpressionParts.push('updatedAt = :u'); 
-    expressionAttributeValues[':u'] = now;
+    updateExpressionParts.push('#ua = :ua');
+    expressionAttributeNames['#ua'] = 'updatedAt';
+    expressionAttributeValues[':ua'] = new Date().toISOString();
 
     await ddbDocClient.send(
       new UpdateCommand({
@@ -142,26 +149,25 @@ export class EventsService {
         ReturnValues: "UPDATED_NEW",
       }),
     );
+    return this.findById(id);
   }
 
   async softDelete(id: string): Promise<void> {
-
-    const eventToDelete = await this.findById(id);
-    if (!eventToDelete) {
-        throw new NotFoundException('Event not found, cannot delete.');
-    }
+    await this.findById(id);
 
     await ddbDocClient.send(
       new UpdateCommand({
         TableName: this.tableName,
         Key: { id },
-        UpdateExpression: 'SET #s = :s, deletedAt = :da',
+        UpdateExpression: 'SET #s = :s, deletedAt = :da, #ua = :ua',
         ExpressionAttributeNames: {
           '#s': 'status',
+          '#ua': 'updatedAt'
         },
         ExpressionAttributeValues: {
           ':s': 'inactive' as EventStatus,
           ':da': new Date().toISOString(),
+          ':ua': new Date().toISOString()
         },
       }),
     );
@@ -176,34 +182,32 @@ export class EventsService {
     const ExpressionAttributeValues: Record<string, any> = {};
     const ExpressionAttributeNames: Record<string, string> = {};
 
-    if (filters.status === 'inactive') {
-
-      filterParts.push('#s = :statusValue');
-      ExpressionAttributeNames['#s'] = 'status';
-      ExpressionAttributeValues[':statusValue'] = 'inactive';
-    } else if (filters.status === 'active') {
-
-      filterParts.push('attribute_not_exists(deletedAt)');
-      filterParts.push('#s = :statusValue');
-      ExpressionAttributeNames['#s'] = 'status';
-      ExpressionAttributeValues[':statusValue'] = 'active';
-    } else {
-
-      filterParts.push('attribute_not_exists(deletedAt)');
-      filterParts.push('#s = :statusValue');
-      ExpressionAttributeNames['#s'] = 'status';
-      ExpressionAttributeValues[':statusValue'] = 'active';
+    let statusToFilter = filters.status;
+    if (!statusToFilter) {
+        filterParts.push('attribute_not_exists(deletedAt)');
+        filterParts.push('#s = :statusValue');
+        ExpressionAttributeNames['#s'] = 'status';
+        ExpressionAttributeValues[':statusValue'] = 'active';
+    } else if (statusToFilter === 'active') {
+        filterParts.push('attribute_not_exists(deletedAt)');
+        filterParts.push('#s = :statusValue');
+        ExpressionAttributeNames['#s'] = 'status';
+        ExpressionAttributeValues[':statusValue'] = 'active';
+    } else if (statusToFilter === 'inactive') {
+         filterParts.push('#s = :statusValue');
+         ExpressionAttributeNames['#s'] = 'status';
+         ExpressionAttributeValues[':statusValue'] = 'inactive';
     }
 
     if (filters.name) {
-      filterParts.push('contains(#filterName, :nameValue)'); 
-      ExpressionAttributeNames['#filterName'] = 'name'; 
+      filterParts.push('contains(#filterName, :nameValue)');
+      ExpressionAttributeNames['#filterName'] = 'name';
       ExpressionAttributeValues[':nameValue'] = filters.name;
     }
 
     if (filters.date) {
       filterParts.push('#filterDate >= :dateValue');
-      ExpressionAttributeNames['#filterDate'] = 'date'; 
+      ExpressionAttributeNames['#filterDate'] = 'date';
       ExpressionAttributeValues[':dateValue'] = filters.date;
     }
 
@@ -219,11 +223,10 @@ export class EventsService {
     if (Object.keys(ExpressionAttributeValues).length > 0) {
       params.ExpressionAttributeValues = ExpressionAttributeValues;
     }
- 
+
     if (Object.keys(ExpressionAttributeNames).length > 0 && filterParts.length > 0) {
       params.ExpressionAttributeNames = ExpressionAttributeNames;
     }
-
 
     if (startKey) {
       params.ExclusiveStartKey = startKey;
