@@ -14,7 +14,7 @@ import { ddbDocClient } from '../database/dynamodb.client';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { S3Service } from '../storage/s3.service';
-import { Express } from 'express';
+
 
 @Injectable()
 export class EventsService {
@@ -29,7 +29,7 @@ export class EventsService {
     }
 
     const eventId = uuidv4();
-    let imageUrl = 'https://default-event-image.com/placeholder.png';
+    let imageUrl = process.env.DEFAULT_EVENT_IMAGE_URL || 'https://default-event-image.com/placeholder.png';
 
     if (file) {
       imageUrl = await this.s3Service.uploadImage(file, eventId, 'events');
@@ -94,6 +94,7 @@ export class EventsService {
     return event;
   }
 
+  
   async update(id: string, updates: Omit<UpdateEventDto, 'file'>, file?: Express.Multer.File): Promise<Event> {
     const eventToUpdate = await this.findById(id);
 
@@ -101,16 +102,15 @@ export class EventsService {
     const expressionAttributeNames: Record<string, string> = {};
     const expressionAttributeValues: Record<string, any> = {};
 
-    let newImageUrl = updates.imageUrl;
+    let newUploadedImageUrl: string | undefined = undefined;
 
     if (file) {
-      newImageUrl = await this.s3Service.uploadImage(file, id, 'events');
-    }
-
-    if (newImageUrl !== undefined && newImageUrl !== eventToUpdate.imageUrl) {
+      newUploadedImageUrl = await this.s3Service.uploadImage(file, id, 'events');
+      if (newUploadedImageUrl !== eventToUpdate.imageUrl) {
         updateExpressionParts.push('#iu = :iu');
         expressionAttributeNames['#iu'] = 'imageUrl';
-        expressionAttributeValues[':iu'] = newImageUrl;
+        expressionAttributeValues[':iu'] = newUploadedImageUrl;
+      }
     }
 
     if (updates.name !== undefined && updates.name !== eventToUpdate.name) {
@@ -130,9 +130,7 @@ export class EventsService {
     }
 
     if (updateExpressionParts.length === 0) {
-        if (newImageUrl === eventToUpdate.imageUrl) {
-             return eventToUpdate;
-        }
+         return eventToUpdate;
     }
 
     updateExpressionParts.push('#ua = :ua');
