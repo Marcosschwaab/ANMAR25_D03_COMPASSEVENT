@@ -13,6 +13,7 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 import { ddbDocClient } from '../database/dynamodb.client';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { CreateUserDto } from './dto/create-user.dto';
 
 export interface PaginatedUsersResult {
   items: Omit<User, 'password'>[];
@@ -29,7 +30,7 @@ export interface PaginatedUsersResult {
 export class UsersService {
   private tableName = 'Users';
 
-  async create(data: any): Promise<User> {
+  async create(data: CreateUserDto, profileImageUrl?: string): Promise<Omit<User, 'password'>> {
     const existing = await this.findByEmail(data.email);
     if (existing) {
       throw new ConflictException('Email already exists');
@@ -41,7 +42,7 @@ export class UsersService {
       email: data.email,
       password: await bcrypt.hash(data.password, 10),
       phone: data.phone,
-      profileImageUrl: data.profileImageUrl || '',
+      profileImageUrl: profileImageUrl || '',
       role: data.role,
       isActive: true,
       createdAt: new Date().toISOString(),
@@ -54,8 +55,8 @@ export class UsersService {
         Item: user,
       }),
     );
-
-    return user;
+    const { password, ...result } = user;
+    return result;
   }
 
   async list(
@@ -79,7 +80,7 @@ export class UsersService {
         expressionAttributeNames['#r'] = 'role';
       }
     }
-    
+
     if (filters.name) {
       filterExpressions.push('contains(#n, :name)');
       attributeValues[':name'] = filters.name;
@@ -107,7 +108,7 @@ export class UsersService {
     if (Object.keys(expressionAttributeNames).length > 0) {
       scanParams.ExpressionAttributeNames = expressionAttributeNames;
     }
-    
+
     let allItems: any[] = [];
     let lastEvaluatedKey;
     do {
@@ -173,7 +174,7 @@ export class UsersService {
     return result.Items?.[0] as User || null;
   }
 
-  async findById(id: string): Promise<User | null> {
+  async findById(id: string): Promise<Omit<User, 'password'> | null> {
     const result = await ddbDocClient.send(
       new ScanCommand({
         TableName: this.tableName,
@@ -183,14 +184,21 @@ export class UsersService {
         },
       }),
     );
-
-    return result.Items?.[0] as User || null;
+    const user = result.Items?.[0] as User;
+    if (!user) return null;
+    const { password, ...rest } = user;
+    return rest;
   }
 
-  async update(id: string, data: UpdateUserDto): Promise<void> {
+  async update(id: string, data: Partial<UpdateUserDto & { profileImageUrl?: string }>): Promise<void> {
     const updateFields: string[] = [];
     const attributeNames = {};
     const attributeValues = {};
+
+    const userToUpdate = await this.findById(id);
+    if (!userToUpdate) {
+        throw new ConflictException('User not found.');
+    }
 
     if (data.name) {
       updateFields.push('#n = :name');
@@ -199,6 +207,10 @@ export class UsersService {
     }
 
     if (data.email) {
+      const existingByEmail = await this.findByEmail(data.email);
+      if (existingByEmail && existingByEmail.id !== id) {
+          throw new ConflictException('Email already in use by another user.');
+      }
       updateFields.push('#e = :email');
       attributeNames['#e'] = 'email';
       attributeValues[':email'] = data.email;
@@ -209,7 +221,7 @@ export class UsersService {
       attributeNames['#p'] = 'phone';
       attributeValues[':phone'] = data.phone;
     }
-    
+
     if (data.profileImageUrl) {
         updateFields.push('#piu = :profileImageUrl');
         attributeNames['#piu'] = 'profileImageUrl';
@@ -227,7 +239,8 @@ export class UsersService {
     attributeNames['#u'] = 'updatedAt';
     attributeValues[':updatedAt'] = new Date().toISOString();
 
-    if (updateFields.length === 0) return;
+    if (updateFields.length === 1 && '#u = :updatedAt' in attributeNames) return;
+
 
     await ddbDocClient.send(
       new UpdateCommand({
@@ -236,11 +249,16 @@ export class UsersService {
         UpdateExpression: `SET ${updateFields.join(', ')}`,
         ExpressionAttributeNames: attributeNames,
         ExpressionAttributeValues: attributeValues,
+        ReturnValues: "UPDATED_NEW",
       }),
     );
   }
 
   async softDelete(id: string): Promise<void> {
+    const userToDelete = await this.findById(id);
+     if (!userToDelete) {
+        throw new ConflictException('User not found.');
+    }
     await ddbDocClient.send(
       new UpdateCommand({
         TableName: this.tableName,

@@ -6,6 +6,7 @@ import {
   IsString,
 } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Express } from 'express'; // Required for Multer
 
 export class UpdateUserDto {
   @ApiPropertyOptional({
@@ -45,12 +46,12 @@ export class UpdateUserDto {
   phone?: string;
 
   @ApiPropertyOptional({
-    example: 'https://your-bucket.s3.amazonaws.com/profiles/user123/avatar.png',
-    description: 'New profile image URL (typically auto-set by upload)',
+    type: 'string',
+    format: 'binary',
+    description: 'Optional new profile image file to upload.',
   })
   @IsOptional()
-  @IsString()
-  profileImageUrl?: string;
+  file?: Express.Multer.File;
 
   @ApiPropertyOptional({
     example: '2025-05-28T12:00:00.000Z',

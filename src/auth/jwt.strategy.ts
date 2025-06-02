@@ -5,10 +5,10 @@ import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
 import { User } from '../users/entities/user.entity';
 
-
 interface JwtPayload {
   sub: string;
-  username: string;
+  name: string;
+  email: string;
   roles: string[];
 }
 
@@ -34,14 +34,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException();
     }
 
-    const user = await this.usersService.findById(userId);
+    const user: AuthenticatedUser | null = await this.usersService.findById(userId);
 
     if (!user) {
       throw new UnauthorizedException();
     }
 
-    const { password, ...result } = user;
-    
-    return result as AuthenticatedUser;
+    return user;
   }
 }

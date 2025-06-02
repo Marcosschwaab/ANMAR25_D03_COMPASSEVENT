@@ -13,7 +13,10 @@ import {
   UploadedFile,
   UseInterceptors,
   BadRequestException,
-  ValidationPipe, // Import ValidationPipe
+  ValidationPipe,
+  ParseFilePipe,
+  MaxFileSizeValidator,
+  FileTypeValidator,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -27,7 +30,8 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { S3Service } from '../storage/s3.service';
 import { UuidValidationPipe } from '../common/pipes/uuid-validation.pipe';
 import { UserRole } from './entities/user.entity';
-import { ListUserDto } from './dto/list-user.dto'; 
+import { ListUserDto } from './dto/list-user.dto';
+import { Express } from 'express';
 
 @ApiBearerAuth('access-token')
 @ApiTags('users')
@@ -40,14 +44,33 @@ export class UsersController {
 
   @Public()
   @Post()
-  create(@Body() createUserDto: CreateUserDto) {
-    return this.usersService.create(createUserDto);
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({ type: CreateUserDto })
+  async create(
+    @Body(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true })) createUserDto: CreateUserDto,
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new FileTypeValidator({ fileType: '.(png|jpeg|jpg)' }),
+        ],
+        fileIsRequired: false,
+      }),
+    ) file?: Express.Multer.File,
+  ) {
+    let profileImageUrl: string | undefined;
+    if (file) {
+      const tempIdForNewUser = 'temp-user-id'; 
+      profileImageUrl = await this.s3Service.uploadImage(file, tempIdForNewUser);
+    }
+    const user = await this.usersService.create(createUserDto, profileImageUrl);
+    return user;
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Get(':id')
   async findById(@Param('id', UuidValidationPipe) id: string, @Request() req) {
-    if (req.user.id !== id && req.user.role !== 'admin') {
+    if (req.user.id !== id && req.user.role !== UserRole.ADMIN) {
       throw new ForbiddenException('Access denied');
     }
     return this.usersService.findById(id);
@@ -55,31 +78,54 @@ export class UsersController {
 
   @UseGuards(JwtAuthGuard)
   @Patch(':id')
-  async update(@Param('id', UuidValidationPipe) id: string, @Body() dto: UpdateUserDto, @Request() req) {
-    if (req.user.id !== id && req.user.role !== 'admin') {
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({ type: UpdateUserDto })
+  async update(
+    @Param('id', UuidValidationPipe) id: string,
+    @Body(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true })) dto: UpdateUserDto,
+    @Request() req,
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new FileTypeValidator({ fileType: '.(png|jpeg|jpg)' }),
+        ],
+        fileIsRequired: false,
+      }),
+    ) file?: Express.Multer.File,
+  ) {
+    if (req.user.id !== id && req.user.role !== UserRole.ADMIN) {
       throw new ForbiddenException('You can only update your own data or an admin can update any user.');
     }
-    return this.usersService.update(id, dto);
+
+    const updatePayload: Partial<UpdateUserDto & { profileImageUrl?: string }> = { ...dto };
+
+    if (file) {
+      updatePayload.profileImageUrl = await this.s3Service.uploadImage(file, id);
+    }
+
+    delete updatePayload.file;
+
+    return this.usersService.update(id, updatePayload);
   }
 
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
   async softDelete(@Param('id', UuidValidationPipe) id: string, @Request() req) {
-    if (req.user.id !== id && req.user.role !== 'admin') {
+    if (req.user.id !== id && req.user.role !== UserRole.ADMIN) {
       throw new ForbiddenException('Only admin or the account owner can delete');
     }
     return this.usersService.softDelete(id);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin', 'organizer')
+  @Roles(UserRole.ADMIN, UserRole.ORGANIZER)
   @Get()
   async listUsers(
     @Request() req,
     @Query(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true })) listUserDto: ListUserDto,
   ) {
-    const { name, email, role, page = 1, limit = 10 } = listUserDto; 
-
+    const { name, email, role, page = 1, limit = 10 } = listUserDto;
 
     return this.usersService.list(
       { name, email, role },
@@ -87,37 +133,5 @@ export class UsersController {
       page,
       limit,
     );
-  }
-
-  @UseGuards(JwtAuthGuard)
-  @Patch(':id/profile-image')
-  @UseInterceptors(FileInterceptor('file'))
-  @ApiConsumes('multipart/form-data')
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        file: {
-          type: 'string',
-          format: 'binary',
-        },
-      },
-    },
-  })
-  async uploadProfileImage(
-    @Param('id', UuidValidationPipe) id: string,
-    @UploadedFile() file: Express.Multer.File,
-    @Request() req,
-  ) {
-    if (req.user.id !== id && req.user.role !== 'admin') {
-      throw new ForbiddenException('You can only upload your own profile image or an admin can update any user.');
-    }
-
-    const imageUrl = await this.s3Service.uploadImage(file, id);
-
-    return this.usersService.update(id, {
-      profileImageUrl: imageUrl,
-      updatedAt: new Date().toISOString(), 
-    });
   }
 }

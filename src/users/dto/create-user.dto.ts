@@ -12,6 +12,7 @@ import { Transform } from 'class-transformer';
 import { UserRole } from '../entities/user.entity';
 import { RoleValidationPipe } from '../../common/pipes/role-validation.pipe';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Express } from 'express'; // Required for Multer
 
 export class CreateUserDto {
   @ApiProperty({
@@ -58,15 +59,15 @@ export class CreateUserDto {
     required: true,
   })
   @IsEnum(UserRole)
-  @Transform(({ value }) => value.toLowerCase()) 
+  @Transform(({ value }) => value.toLowerCase())
   @Validate(RoleValidationPipe)
   role: UserRole;
 
   @ApiPropertyOptional({
-    example: 'https://your-bucket.s3.amazonaws.com/profiles/uuid/photo.png',
-    description: 'Optional profile image URL (will be overwritten if uploaded later)',
+    type: 'string',
+    format: 'binary',
+    description: 'Optional profile image file to upload.',
   })
   @IsOptional()
-  @IsString()
-  profileImageUrl?: string;
+  file?: Express.Multer.File;
 }
