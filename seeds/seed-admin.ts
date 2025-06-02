@@ -4,10 +4,10 @@ import { v4 as uuidv4 } from 'uuid';
 import * as bcrypt from 'bcrypt';
 import { UserRole } from '../src/users/entities/user.entity';
 
-const dbRegion = process.env.DB_REGION || 'local';
-const dbEndpoint = process.env.DB_ENDPOINT || 'http://localhost:8000';
-const dbAccessKeyId = process.env.DB_ACCESS_KEY_ID || 'fake';
-const dbSecretAccessKey = process.env.DB_SECRET_ACCESS_KEY || 'fake';
+const dbRegion = process.env.DYNAMO_REGION || 'local';
+const dbEndpoint = process.env.DYNAMO_ENDPOINT || 'http://localhost:8000';
+const dbAccessKeyId = process.env.AWS_ACCESS_KEY_ID || 'fake';
+const dbSecretAccessKey = process.env.AWS_SECRET_ACCESS_KEY || 'fake';
 
 const ddbClient = new DynamoDBClient({
   region: dbRegion,
@@ -24,8 +24,8 @@ const tableName = 'Users';
 const seedAdminUser = async () => {
   console.log('🌱 Starting to seed admin user...');
 
-  const adminEmail = 'admin@example.com';
-  const adminPassword = 'AdminPassword123';
+  const adminEmail = 'admin@admin.com';
+  const adminPassword = 'Password123';
 
   const saltRounds = 10;
   const hashedPassword = await bcrypt.hash(adminPassword, saltRounds);

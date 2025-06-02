@@ -1,18 +1,28 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { DynamoDBClient, ListTablesCommand } from '@aws-sdk/client-dynamodb';
+import { ConfigService } from '@nestjs/config'; 
 
 @Injectable()
 export class DynamoDBService implements OnModuleInit {
   private readonly logger = new Logger(DynamoDBService.name);
+  private client: DynamoDBClient; 
 
-  private client = new DynamoDBClient({
-    region: 'local',
-    endpoint: 'http://localhost:8000',
-    credentials: {
-      accessKeyId: 'fakeAccessKey',     
-      secretAccessKey: 'fakeSecretKey', 
-    },
-  });
+  constructor(private configService: ConfigService) { 
+
+    const region = this.configService.get<string>('DYNAMO_REGION', 'local');
+    const endpoint = this.configService.get<string>('DYNAMO_ENDPOINT', 'http://localhost:8000');
+    const accessKeyId = this.configService.get<string>('AWS_ACCESS_KEY_ID', 'fakeAccessKey');
+    const secretAccessKey = this.configService.get<string>('AWS_SECRET_ACCESS_KEY', 'fakeSecretKey');
+
+    this.client = new DynamoDBClient({
+      region: region,
+      endpoint: endpoint,
+      credentials: {
+        accessKeyId: accessKeyId,
+        secretAccessKey: secretAccessKey,
+      },
+    });
+  }
 
   async onModuleInit() {
     try {
