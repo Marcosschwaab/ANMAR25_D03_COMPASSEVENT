@@ -10,8 +10,7 @@ import { RolesGuard } from './common/guards/roles.guard';
 import { JwtAuthGuard } from './auth/guard/jwt-auth.guard';
 import { EventsModule } from './events/events.module';
 import { RegistrationsModule } from './registrations/registrations.module';
-
-
+import { EmailModule } from './email/email.module';
 
 
 @Module({
@@ -21,6 +20,7 @@ import { RegistrationsModule } from './registrations/registrations.module';
     AuthModule,
     EventsModule,
     RegistrationsModule,
+    EmailModule,
     ],
   controllers: [AppController],
   providers: [
