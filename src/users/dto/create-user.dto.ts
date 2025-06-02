@@ -12,7 +12,7 @@ import { Transform } from 'class-transformer';
 import { UserRole } from '../entities/user.entity';
 import { RoleValidationPipe } from '../../common/pipes/role-validation.pipe';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Express } from 'express'; // Required for Multer
+import { Express } from 'express';
 
 export class CreateUserDto {
   @ApiProperty({

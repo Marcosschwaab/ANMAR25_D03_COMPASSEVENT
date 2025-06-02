@@ -12,11 +12,7 @@ import {
   UseGuards,
   UploadedFile,
   UseInterceptors,
-  BadRequestException,
   ValidationPipe,
-  ParseFilePipe,
-  MaxFileSizeValidator,
-  FileTypeValidator,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -25,13 +21,14 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Public } from '../common/decorators/public.decorator';
-import { ApiBearerAuth, ApiBody, ApiConsumes, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { S3Service } from '../storage/s3.service';
 import { UuidValidationPipe } from '../common/pipes/uuid-validation.pipe';
 import { UserRole } from './entities/user.entity';
 import { ListUserDto } from './dto/list-user.dto';
 import { Express } from 'express';
+import { SpecificOptionalImageValidationPipe } from '../common/pipes/specific-optional-image-validation.pipe';
 
 @ApiBearerAuth('access-token')
 @ApiTags('users')
@@ -49,21 +46,20 @@ export class UsersController {
   @ApiBody({ type: CreateUserDto })
   async create(
     @Body(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true })) createUserDto: CreateUserDto,
-    @UploadedFile(
-      new ParseFilePipe({
-        validators: [
-          new FileTypeValidator({ fileType: '.(png|jpeg|jpg)' }),
-        ],
-        fileIsRequired: false,
-      }),
-    ) file?: Express.Multer.File,
+    @UploadedFile(new SpecificOptionalImageValidationPipe()) file?: Express.Multer.File,
   ) {
     let profileImageUrl: string | undefined;
+    const { file: _, ...userData } = createUserDto;
+
     if (file) {
-      const tempIdForNewUser = 'temp-user-id'; 
-      profileImageUrl = await this.s3Service.uploadImage(file, tempIdForNewUser);
+      profileImageUrl = await this.s3Service.uploadImage(file, 'temp-user-id');
     }
-    const user = await this.usersService.create(createUserDto, profileImageUrl);
+    const user = await this.usersService.create(userData, profileImageUrl);
+    if (profileImageUrl && user && user.id && profileImageUrl.includes('temp-user-id')) {
+        const finalImageUrl = profileImageUrl.replace('temp-user-id', user.id);
+        await this.usersService.update(user.id, { profileImageUrl: finalImageUrl });
+        return { ...user, profileImageUrl: finalImageUrl };
+    }
     return user;
   }
 
@@ -83,30 +79,23 @@ export class UsersController {
   @ApiBody({ type: UpdateUserDto })
   async update(
     @Param('id', UuidValidationPipe) id: string,
-    @Body(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true })) dto: UpdateUserDto,
+    @Body(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true })) updateUserDto: UpdateUserDto,
     @Request() req,
-    @UploadedFile(
-      new ParseFilePipe({
-        validators: [
-          new FileTypeValidator({ fileType: '.(png|jpeg|jpg)' }),
-        ],
-        fileIsRequired: false,
-      }),
-    ) file?: Express.Multer.File,
+    @UploadedFile(new SpecificOptionalImageValidationPipe()) file?: Express.Multer.File,
   ) {
     if (req.user.id !== id && req.user.role !== UserRole.ADMIN) {
       throw new ForbiddenException('You can only update your own data or an admin can update any user.');
     }
 
-    const updatePayload: Partial<UpdateUserDto & { profileImageUrl?: string }> = { ...dto };
+    const { file: _, ...userData } = updateUserDto;
+    const updatePayload: Partial<UpdateUserDto & { profileImageUrl?: string }> = { ...userData };
 
     if (file) {
       updatePayload.profileImageUrl = await this.s3Service.uploadImage(file, id);
     }
 
-    delete updatePayload.file;
-
-    return this.usersService.update(id, updatePayload);
+    await this.usersService.update(id, updatePayload);
+    return this.usersService.findById(id);
   }
 
   @UseGuards(JwtAuthGuard)

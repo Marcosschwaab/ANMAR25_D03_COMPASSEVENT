@@ -3,13 +3,12 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
-import { User } from '../users/entities/user.entity';
-
+import { User } from '../users/entities/user.entity'; 
 interface JwtPayload {
   sub: string;
   name: string;
   email: string;
-  roles: string[];
+  roles: string[]; 
 }
 
 type AuthenticatedUser = Omit<User, 'password'>;
@@ -39,6 +38,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (!user) {
       throw new UnauthorizedException();
     }
+
+    if (!payload.roles || !payload.roles.includes(user.role)) {
+        throw new UnauthorizedException('User role in token does not match current role');
+    }
+
 
     return user;
   }
