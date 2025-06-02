@@ -6,7 +6,7 @@ import {
   IsString,
 } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Express } from 'express'; // Required for Multer
+import { Express } from 'express';
 
 export class UpdateUserDto {
   @ApiPropertyOptional({
@@ -48,16 +48,8 @@ export class UpdateUserDto {
   @ApiPropertyOptional({
     type: 'string',
     format: 'binary',
-    description: 'Optional new profile image file to upload.',
+    description: 'Optional new profile image file to upload. If provided, this will replace the existing profile image.',
   })
   @IsOptional()
   file?: Express.Multer.File;
-
-  @ApiPropertyOptional({
-    example: '2025-05-28T12:00:00.000Z',
-    description: 'Timestamp of last update',
-  })
-  @IsOptional()
-  @IsString()
-  updatedAt?: string;
 }

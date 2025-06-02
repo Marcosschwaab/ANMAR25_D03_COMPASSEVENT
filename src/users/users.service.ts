@@ -1,6 +1,7 @@
 import {
   Injectable,
   ConflictException,
+  NotFoundException,
 } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
 import * as bcrypt from 'bcrypt';
@@ -60,7 +61,7 @@ export class UsersService {
   }
 
   async list(
-    filters: { name?: string; email?: string; role?: string },
+    filters: { name?: string; email?: string; role?: UserRole },
     requestingUserRole: UserRole,
     page?: number,
     limit?: number,
@@ -109,7 +110,7 @@ export class UsersService {
       scanParams.ExpressionAttributeNames = expressionAttributeNames;
     }
 
-    let allItems: any[] = [];
+    let allItems: User[] = [];
     let lastEvaluatedKey;
     do {
       const currentScanParams = { ...scanParams };
@@ -119,7 +120,7 @@ export class UsersService {
       const command = new ScanCommand(currentScanParams);
       const result = await ddbDocClient.send(command);
       if (result.Items) {
-        allItems = allItems.concat(result.Items);
+        allItems = allItems.concat(result.Items as User[]);
       }
       lastEvaluatedKey = result.LastEvaluatedKey;
     } while (lastEvaluatedKey);
@@ -170,8 +171,7 @@ export class UsersService {
         },
       }),
     );
-
-    return result.Items?.[0] as User || null;
+    return (result.Items?.[0] as User) || null;
   }
 
   async findById(id: string): Promise<Omit<User, 'password'> | null> {
@@ -184,48 +184,56 @@ export class UsersService {
         },
       }),
     );
-    const user = result.Items?.[0] as User;
-    if (!user) return null;
-    const { password, ...rest } = user;
+    const userEntity = result.Items?.[0] as User;
+    if (!userEntity) {
+      return null;
+    }
+    const { password, ...rest } = userEntity;
     return rest;
   }
 
   async update(id: string, data: Partial<UpdateUserDto & { profileImageUrl?: string }>): Promise<void> {
     const updateFields: string[] = [];
-    const attributeNames = {};
-    const attributeValues = {};
+    const attributeNames: Record<string, string> = {};
+    const attributeValues: Record<string, any> = {};
 
     const userToUpdate = await this.findById(id);
     if (!userToUpdate) {
-        throw new ConflictException('User not found.');
+      throw new NotFoundException(`User with ID "${id}" not found.`);
     }
 
-    if (data.name) {
+    let actualDataChanged = false;
+
+    if (data.name && data.name !== userToUpdate.name) {
       updateFields.push('#n = :name');
       attributeNames['#n'] = 'name';
       attributeValues[':name'] = data.name;
+      actualDataChanged = true;
     }
 
-    if (data.email) {
+    if (data.email && data.email !== userToUpdate.email) {
       const existingByEmail = await this.findByEmail(data.email);
       if (existingByEmail && existingByEmail.id !== id) {
-          throw new ConflictException('Email already in use by another user.');
+        throw new ConflictException('Email already in use by another user.');
       }
       updateFields.push('#e = :email');
       attributeNames['#e'] = 'email';
       attributeValues[':email'] = data.email;
+      actualDataChanged = true;
     }
 
-    if (data.phone) {
+    if (data.phone && data.phone !== userToUpdate.phone) {
       updateFields.push('#p = :phone');
       attributeNames['#p'] = 'phone';
       attributeValues[':phone'] = data.phone;
+      actualDataChanged = true;
     }
 
-    if (data.profileImageUrl) {
-        updateFields.push('#piu = :profileImageUrl');
-        attributeNames['#piu'] = 'profileImageUrl';
-        attributeValues[':profileImageUrl'] = data.profileImageUrl;
+    if (data.profileImageUrl && data.profileImageUrl !== userToUpdate.profileImageUrl) {
+      updateFields.push('#piu = :profileImageUrl');
+      attributeNames['#piu'] = 'profileImageUrl';
+      attributeValues[':profileImageUrl'] = data.profileImageUrl;
+      actualDataChanged = true;
     }
 
     if (data.password) {
@@ -233,14 +241,16 @@ export class UsersService {
       updateFields.push('#pw = :password');
       attributeNames['#pw'] = 'password';
       attributeValues[':password'] = hashedPassword;
+      actualDataChanged = true;
+    }
+
+    if (!actualDataChanged) {
+      return;
     }
 
     updateFields.push('#u = :updatedAt');
     attributeNames['#u'] = 'updatedAt';
     attributeValues[':updatedAt'] = new Date().toISOString();
-
-    if (updateFields.length === 1 && '#u = :updatedAt' in attributeNames) return;
-
 
     await ddbDocClient.send(
       new UpdateCommand({
@@ -249,15 +259,15 @@ export class UsersService {
         UpdateExpression: `SET ${updateFields.join(', ')}`,
         ExpressionAttributeNames: attributeNames,
         ExpressionAttributeValues: attributeValues,
-        ReturnValues: "UPDATED_NEW",
+        ReturnValues: 'NONE',
       }),
     );
   }
 
   async softDelete(id: string): Promise<void> {
     const userToDelete = await this.findById(id);
-     if (!userToDelete) {
-        throw new ConflictException('User not found.');
+    if (!userToDelete) {
+      throw new NotFoundException(`User with ID "${id}" not found.`);
     }
     await ddbDocClient.send(
       new UpdateCommand({
