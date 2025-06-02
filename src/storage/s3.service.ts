@@ -19,8 +19,9 @@ export class S3Service {
       credentials: {
         accessKeyId: process.env.AWS_ACCESS_KEY_ID || 'fake',
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || 'fake',
+        sessionToken: process.env.AWS_SESSION_TOKEN || undefined, 
       },
-      endpoint: process.env.S3_ENDPOINT || undefined, 
+      endpoint: process.env.S3_ENDPOINT || undefined,
       forcePathStyle: true,
     });
   }
