@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { PutCommand, ScanCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { ddbDocClient } from '../database/dynamodb.client';
 import { EventsService } from '../events/events.service';
+import { FilterRegistrationDto } from './dto/filter-registration.dto';
 
 @Injectable()
 export class RegistrationsService {
@@ -37,20 +38,28 @@ export class RegistrationsService {
     return registration;
   }
 
-  async findAllByParticipant(participantId: string, limit = 10, startKey?: any) {
+  async findAllByParticipant(participantId: string, filterDto: FilterRegistrationDto) {
+    const { limit = 10 } = filterDto; // Extrai apenas o limit do DTO
+
+    if (!participantId) {
+      throw new BadRequestException('Participant ID is required.');
+    }
+
+    // A expressão de filtro agora considera apenas o participantId e se não foi 'soft-deleted'
+    const filterExpression = 'participantId = :p AND attribute_not_exists(deletedAt)';
+    const expressionAttributeValues: { [key: string]: any } = {
+      ':p': participantId,
+    };
+
     const result = await ddbDocClient.send(new ScanCommand({
       TableName: this.tableName,
-      FilterExpression: 'participantId = :p AND attribute_not_exists(deletedAt)',
-      ExpressionAttributeValues: {
-        ':p': participantId,
-      },
-      Limit: limit,
-      ExclusiveStartKey: startKey,
+      FilterExpression: filterExpression,
+      ExpressionAttributeValues: expressionAttributeValues,
+      Limit: limit, // Aplica o limite para paginação
     }));
 
     return {
       items: result.Items,
-      nextPageToken: result.LastEvaluatedKey,
     };
   }
 

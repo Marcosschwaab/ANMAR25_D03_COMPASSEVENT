@@ -21,6 +21,7 @@ import {
   ApiResponse,
 } from '@nestjs/swagger';
 import { UuidValidationPipe } from '../common/pipes/uuid-validation.pipe';
+import { FilterRegistrationDto } from './dto/filter-registration.dto';
 
 @ApiTags('registrations')
 @ApiBearerAuth('access-token')
@@ -35,7 +36,7 @@ export class RegistrationsController {
   @ApiResponse({ status: 201, description: 'Registration created' })
   @ApiResponse({ status: 400, description: 'Invalid or inactive event' })
   async create(@Body() dto: CreateRegistrationDto, @Request() req) {
-    return this.registrationsService.create(dto.eventId, req.user.userId);
+    return this.registrationsService.create(dto.eventId, req.user.id);
   }
 
   @Get()
@@ -43,13 +44,11 @@ export class RegistrationsController {
   @ApiResponse({ status: 200, description: 'List of registrations' })
   async list(
     @Request() req,
-    @Query('limit') limit: number = 10,
-    @Query('startKey') startKey?: string,
+    @Query() filterDto: FilterRegistrationDto,
   ) {
     return this.registrationsService.findAllByParticipant(
-      req.user.userId,
-      limit,
-      startKey,
+      req.user.id, 
+      filterDto,
     );
   }
 
@@ -61,6 +60,6 @@ export class RegistrationsController {
     @Param('id', UuidValidationPipe) id: string,
     @Request() req,
   ) {
-    return this.registrationsService.softDelete(id, req.user.userId);
+    return this.registrationsService.softDelete(id, req.user.id);
   }
 }
