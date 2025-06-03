@@ -1,5 +1,3 @@
-Here's an updated README file including all endpoints, routes, and example JSONs, all in English:
-
 # COMPASS EVENT API
 
 This project provides a robust API for managing events, user registrations, and authentication, built with NestJS. It includes features like role-based access control, email notifications, and integration with AWS services like DynamoDB for data storage and S3 for image management.
@@ -42,6 +40,65 @@ This project provides a robust API for managing events, user registrations, and 
 * **API Documentation:** Swagger (OpenAPI)
 * **Containerization:** Docker (for local DynamoDB)
 * **Infrastructure as Code:** AWS CDK (for S3 bucket deployment)
+
+### Dependencies
+
+* `@aws-sdk/client-dynamodb`: `^3.817.0`
+* `@aws-sdk/client-s3`: `^3.820.0`
+* `@aws-sdk/client-ses`: `^3.821.0`
+* `@aws-sdk/lib-dynamodb`: `^3.817.0`
+* `@aws-sdk/s3-request-presigner`: `^3.820.0`
+* `@nestjs/common`: `^11.0.1`
+* `@nestjs/config`: `^4.0.2`
+* `@nestjs/core`: `^11.0.1`
+* `@nestjs/jwt`: `^11.0.0`
+* `@nestjs/passport`: `^11.0.5`
+* `@nestjs/platform-express`: `^11.0.1`
+* `@nestjs/swagger`: `^11.2.0`
+* `aws-cdk-lib`: `^2.199.0`
+* `bcrypt`: `^6.0.0`
+* `class-transformer`: `^0.5.1`
+* `class-validator`: `^0.14.2`
+* `constructs`: `^10.4.2`
+* `express`: `^5.1.0`
+* `multer`: `^2.0.0`
+* `multer-s3`: `^3.0.1`
+* `passport`: `^0.7.0`
+* `passport-jwt`: `^4.0.1`
+* `reflect-metadata`: `^0.2.2`
+* `rxjs`: `^7.8.1`
+
+### Development Dependencies
+
+* `@eslint/eslintrc`: `^3.2.0`
+* `@eslint/js`: `^9.18.0`
+* `@nestjs/cli`: `^11.0.0`
+* `@nestjs/schematics`: `^11.0.0`
+* `@nestjs/testing`: `^11.0.1`
+* `@swc/cli`: `^0.6.0`
+* `@swc/core`: `^1.10.7`
+* `@types/bcrypt`: `^5.0.2`
+* `@types/express`: `^5.0.2`
+* `@types/jest`: `^29.5.14`
+* `@types/multer`: `^1.4.12`
+* `@types/node`: `^22.15.29`
+* `@types/supertest`: `^6.0.2`
+* `@types/uuid`: `^10.0.0`
+* `aws-cdk`: `^2.1017.1`
+* `eslint`: `^9.18.0`
+* `eslint-config-prettier`: `^10.0.1`
+* `eslint-plugin-prettier`: `^5.2.2`
+* `globals`: `^16.0.0`
+* `jest`: `^29.7.0`
+* `prettier`: `^3.4.2`
+* `source-map-support`: `^0.5.21`
+* `supertest`: `^7.0.0`
+* `ts-jest`: `^29.2.5`
+* `ts-loader`: `^9.5.2`
+* `ts-node`: `^10.9.2`
+* `tsconfig-paths`: `^4.2.0`
+* `typescript`: `^5.8.3`
+* `typescript-eslint`: `^8.20.0`
 
 ## Getting Started
 
