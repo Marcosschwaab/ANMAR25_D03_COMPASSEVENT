@@ -15,6 +15,7 @@ import {
 import { ddbDocClient } from '../database/dynamodb.client';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { CreateUserDto } from './dto/create-user.dto';
+import { EmailService } from '../email/email.service'; 
 
 export interface PaginatedUsersResult {
   items: Omit<User, 'password'>[];
@@ -30,6 +31,8 @@ export interface PaginatedUsersResult {
 @Injectable()
 export class UsersService {
   private tableName = 'Users';
+
+  constructor(private readonly emailService: EmailService) {}
 
   async create(data: CreateUserDto, profileImageUrl?: string): Promise<Omit<User, 'password'>> {
     const existing = await this.findByEmail(data.email);
@@ -56,6 +59,16 @@ export class UsersService {
         Item: user,
       }),
     );
+
+
+    const verificationLink = `http://localhost:3000/auth/verify-email?token=${user.id}`; // Placeholder, replace with actual token logic
+    const emailHtml = this.emailService.generateVerificationEmailHtml(user.name, verificationLink);
+    try {
+        await this.emailService.sendEmail(user.email, 'Verify Your Email Address', emailHtml);
+    } catch (error) {
+        console.error('Failed to send verification email:', error);
+    }
+
     const { password, ...result } = user;
     return result;
   }
@@ -225,7 +238,7 @@ export class UsersService {
     if (data.phone && data.phone !== userToUpdate.phone) {
       updateFields.push('#p = :phone');
       attributeNames['#p'] = 'phone';
-      attributeValues[':phone'] = data.phone;
+      attributeValues[':p'] = data.phone;
       actualDataChanged = true;
     }
 

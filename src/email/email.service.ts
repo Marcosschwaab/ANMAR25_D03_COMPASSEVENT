@@ -12,6 +12,7 @@ export class EmailService {
     const accessKeyId = this.configService.get<string>('AWS_ACCESS_KEY_ID');
     const secretAccessKey = this.configService.get<string>('AWS_SECRET_ACCESS_KEY');
     const region = this.configService.get<string>('AWS_REGION');
+    const sessionToken = this.configService.get<string>('AWS_SESSION_TOKEN'); 
     this.mailFrom = this.configService.get<string>('AWS_SES_MAIL_FROM') ?? '';
 
     if (accessKeyId && secretAccessKey && region && this.mailFrom) {
@@ -20,6 +21,7 @@ export class EmailService {
         credentials: {
           accessKeyId: accessKeyId,
           secretAccessKey: secretAccessKey,
+          ...(sessionToken && { sessionToken }), 
         },
       });
       this.logger.log('SES Client initialized.');
@@ -71,7 +73,7 @@ export class EmailService {
       return data;
     } catch (error) {
       this.logger.error(`Failed to send email to ${to}: ${error.message}`, error.stack);
-      throw error; 
+      throw error;
     }
   }
 
