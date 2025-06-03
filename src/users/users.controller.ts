@@ -84,8 +84,9 @@ export class UsersController {
     @Request() req,
     @UploadedFile(new SpecificOptionalImageValidationPipe()) file?: Express.Multer.File,
   ) {
-    if (req.user.id !== id && req.user.role !== UserRole.ADMIN) {
-      throw new ForbiddenException('You can only update your own data or an admin can update any user.');
+    // Only allow the user to update their own data
+    if (req.user.id !== id) {
+      throw new ForbiddenException('You can only update your own data.');
     }
 
     const { file: _fileBody, ...userData } = updateUserDto;
