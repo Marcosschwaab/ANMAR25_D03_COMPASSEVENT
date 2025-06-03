@@ -41,6 +41,8 @@ export class UsersService {
       throw new ConflictException('Email already exists');
     }
 
+    const isEmailServiceConfigured = this.emailService.isConfigured();
+
     const user: User = {
       id: uuidv4(),
       name: data.name,
@@ -49,7 +51,7 @@ export class UsersService {
       phone: data.phone,
       profileImageUrl: profileImageUrl || '',
       role: data.role,
-      isActive: false,
+      isActive: isEmailServiceConfigured ? false : true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -61,13 +63,18 @@ export class UsersService {
       }),
     );
 
-    const verificationLink = `${process.env.APP_URL}/auth/verify-email?token=${user.id}`;
-    const emailHtml = this.emailService.generateVerificationEmailHtml(user.name, verificationLink);
-    try {
-        await this.emailService.sendEmail(user.email, 'Verify Your Email Address', emailHtml);
-    } catch (error) {
-        console.error('Failed to send verification email:', error);
+    if (isEmailServiceConfigured) {
+      const verificationLink = `${process.env.APP_URL}/auth/verify-email?token=${user.id}`;
+      const emailHtml = this.emailService.generateVerificationEmailHtml(user.name, verificationLink);
+      try {
+          await this.emailService.sendEmail(user.email, 'Verify Your Email Address', emailHtml);
+      } catch (error) {
+          console.error('Failed to send verification email:', error);
+      }
+    } else {
+        console.warn(`Email service not configured. Skipping verification email for user: ${user.email}. User is active by default.`);
     }
+
 
     const { password, ...result } = user;
     return result;

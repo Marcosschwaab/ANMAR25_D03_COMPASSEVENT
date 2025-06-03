@@ -7,12 +7,13 @@ export class EmailService {
   private readonly logger = new Logger(EmailService.name);
   private sesClient: SESClient | null = null;
   private mailFrom: string;
+  private _isConfigured: boolean = false;
 
   constructor(private configService: ConfigService) {
     const accessKeyId = this.configService.get<string>('AWS_ACCESS_KEY_ID');
     const secretAccessKey = this.configService.get<string>('AWS_SECRET_ACCESS_KEY');
     const region = this.configService.get<string>('AWS_REGION');
-    const sessionToken = this.configService.get<string>('AWS_SESSION_TOKEN'); 
+    const sessionToken = this.configService.get<string>('AWS_SESSION_TOKEN');
     this.mailFrom = this.configService.get<string>('AWS_SES_MAIL_FROM') ?? '';
 
     if (accessKeyId && secretAccessKey && region && this.mailFrom) {
@@ -21,17 +22,23 @@ export class EmailService {
         credentials: {
           accessKeyId: accessKeyId,
           secretAccessKey: secretAccessKey,
-          ...(sessionToken && { sessionToken }), 
+          ...(sessionToken && { sessionToken }),
         },
       });
       this.logger.log('SES Client initialized.');
+      this._isConfigured = true;
     } else {
       this.logger.warn('SES credentials or mail_from not found in .env. Email sending will be skipped.');
+      this._isConfigured = false;
     }
   }
 
+  isConfigured(): boolean {
+      return this._isConfigured;
+  }
+
   async sendEmail(to: string | string[], subject: string, htmlBody: string, textBody?: string) {
-    if (!this.sesClient) {
+    if (!this.sesClient || !this._isConfigured) {
       this.logger.warn(`Skipping email to "${to}" with subject "${subject}" due to missing SES configuration.`);
       return;
     }
@@ -85,7 +92,6 @@ export class EmailService {
       <p>If you did not request this, please ignore this email.</p>
     `;
   }
-
 
   generateGenericNotificationHtml(subject: string, message: string): string {
       return `
