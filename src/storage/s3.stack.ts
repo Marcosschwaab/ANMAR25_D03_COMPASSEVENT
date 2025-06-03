@@ -48,17 +48,17 @@ export class S3BucketStack extends cdk.Stack {
 
     userProfilesCfnBucket.applyRemovalPolicy(cdk.RemovalPolicy.DESTROY);
 
-    // Create a CfnBucketPolicy to allow public read access to objects
+
     new s3.CfnBucketPolicy(this, 'UserProfilesBucketPolicy', {
-      bucket: userProfilesCfnBucket.bucketName!, // Reference the bucket by its name
+      bucket: userProfilesCfnBucket.bucketName!,
       policyDocument: {
         Version: '2012-10-17',
         Statement: [
           {
             Effect: 'Allow',
-            Principal: '*', // Allow access to anyone
-            Action: 's3:GetObject', // Allow GetObject action
-            // Correctly construct the ARN for objects within the CfnBucket
+            Principal: '*', 
+            Action: 's3:GetObject', 
+
             Resource: cdk.Fn.join('', [userProfilesCfnBucket.attrArn, '/*']),
           },
         ],

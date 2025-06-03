@@ -267,10 +267,10 @@ export class UsersService {
       actualDataChanged = true;
     }
 
-    if (data.phone && data.phone !== userToUpdate.phone) {
-      updateFields.push('#p = :phone');
+ if (data.phone && data.phone !== userToUpdate.phone) {
+      updateFields.push('#p = :p'); 
       attributeNames['#p'] = 'phone';
-      attributeValues[':p'] = data.phone;
+      attributeValues[':p'] = data.phone; 
       actualDataChanged = true;
     }
 
