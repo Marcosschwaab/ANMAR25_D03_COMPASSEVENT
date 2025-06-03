@@ -4,12 +4,18 @@ import { PutCommand, ScanCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { ddbDocClient } from '../database/dynamodb.client';
 import { EventsService } from '../events/events.service';
 import { FilterRegistrationDto } from './dto/filter-registration.dto';
+import { EmailService } from '../email/email.service';
+import { UsersService } from '../users/users.service';
 
 @Injectable()
 export class RegistrationsService {
   private tableName = 'Registrations';
 
-  constructor(private readonly eventsService: EventsService) {}
+  constructor(
+    private readonly eventsService: EventsService,
+    private readonly emailService: EmailService,
+    private readonly usersService: UsersService,
+  ) {}
 
   async create(eventId: string, participantId: string) {
     const event = await this.eventsService.findById(eventId);
@@ -35,17 +41,28 @@ export class RegistrationsService {
       Item: registration,
     }));
 
+    const participant = await this.usersService.findById(participantId);
+    if (participant) {
+      const emailSubject = 'Registration Created Successfully!';
+      const emailMessage = `Hello ${participant.name}, your registration for the event "${event.name}" has been successfully created.`;
+      const emailHtml = this.emailService.generateGenericNotificationHtml(emailSubject, emailMessage);
+      try {
+        await this.emailService.sendEmail(participant.email, emailSubject, emailHtml);
+      } catch (error) {
+        console.error('Failed to send registration creation email:', error);
+      }
+    }
+
     return registration;
   }
 
   async findAllByParticipant(participantId: string, filterDto: FilterRegistrationDto) {
-    const { limit = 10 } = filterDto; // Extrai apenas o limit do DTO
+    const { limit = 10 } = filterDto;
 
     if (!participantId) {
       throw new BadRequestException('Participant ID is required.');
     }
 
-    // A expressão de filtro agora considera apenas o participantId e se não foi 'soft-deleted'
     const filterExpression = 'participantId = :p AND attribute_not_exists(deletedAt)';
     const expressionAttributeValues: { [key: string]: any } = {
       ':p': participantId,
@@ -55,7 +72,7 @@ export class RegistrationsService {
       TableName: this.tableName,
       FilterExpression: filterExpression,
       ExpressionAttributeValues: expressionAttributeValues,
-      Limit: limit, // Aplica o limite para paginação
+      Limit: limit,
     }));
 
     return {
@@ -86,6 +103,19 @@ export class RegistrationsService {
         ':d': new Date().toISOString(),
       },
     }));
+
+    const event = await this.eventsService.findById(registration.eventId);
+    const participant = await this.usersService.findById(participantId);
+    if (participant && event) {
+      const emailSubject = 'Registration Cancelled';
+      const emailMessage = `Hello ${participant.name}, your registration for the event "${event.name}" has been successfully cancelled.`;
+      const emailHtml = this.emailService.generateGenericNotificationHtml(emailSubject, emailMessage);
+      try {
+        await this.emailService.sendEmail(participant.email, emailSubject, emailHtml);
+      } catch (error) {
+        console.error('Failed to send registration cancellation email:', error);
+      }
+    }
 
     return { message: 'Registration cancelled' };
   }
