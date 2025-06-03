@@ -11,7 +11,7 @@ import { randomUUID } from 'crypto';
 @Injectable()
 export class S3Service {
   private s3: S3Client;
-  private bucketName = process.env.S3_BUCKET_NAME || 'anmar-users-bucket';
+  private bucketName = process.env.S3_BUCKET_NAME_COMPLETE || 'anmar-users-bucket';
 
   constructor() {
     this.s3 = new S3Client({
@@ -37,6 +37,7 @@ export class S3Service {
           Key: key,
           Body: file.buffer,
           ContentType: file.mimetype,
+          // ACL: 'public-read', 
         }),
       );
 

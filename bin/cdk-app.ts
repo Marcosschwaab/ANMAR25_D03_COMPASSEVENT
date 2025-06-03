@@ -6,7 +6,7 @@ const env = { account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_
 
 new S3BucketStack(app, 'MyS3BucketStackCompassEvent', {
 
-  stackName: 'CompassEventS3Stack' 
+  stackName: 'CompassEventS3Stack-TEST' 
 });
 
 app.synth();

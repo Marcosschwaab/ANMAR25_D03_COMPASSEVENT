@@ -7,6 +7,7 @@ import {
 } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Express } from 'express';
+import { Transform } from 'class-transformer'; 
 
 export class UpdateUserDto {
   @ApiPropertyOptional({
@@ -22,7 +23,8 @@ export class UpdateUserDto {
     description: 'New email address of the user',
   })
   @IsOptional()
-  @IsEmail()
+  @IsEmail({}, { message: 'Please provide a valid email address' })
+  @Transform(({ value }) => (value === '' ? null : value)) 
   email?: string;
 
   @ApiPropertyOptional({
