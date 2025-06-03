@@ -1,6 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsDateString, IsNotEmpty, IsString, MinLength, IsOptional } from 'class-validator';
+import { IsDateString, IsNotEmpty, MinLength, IsOptional } from 'class-validator'; 
 import { Express } from 'express';
+import { IsFutureDate } from '../../common/validators/is-future-date.validator'; 
+
 
 export class CreateEventDto {
   @ApiProperty({
@@ -22,8 +24,10 @@ export class CreateEventDto {
     example: '2025-12-01T10:00:00.000Z',
     description: 'Date when the event will take place',
   })
-  @IsDateString()
-  date: string;
+  @IsDateString() 
+  @IsNotEmpty() 
+  @IsFutureDate()
+  date: string; 
 
   @ApiPropertyOptional({
     type: 'string',
