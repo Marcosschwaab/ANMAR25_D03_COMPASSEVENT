@@ -1,6 +1,6 @@
 import { S3Event } from 'aws-lambda';
 import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
-import * as sharp from 'sharp';
+import sharp = require('sharp');
 
 const s3Client = new S3Client({});
 
@@ -21,8 +21,7 @@ export const handler = async (event: S3Event): Promise<void> => {
       };
 
       const { Body } = await s3Client.send(new GetObjectCommand(getObjectParams));
-      const imageBuffer = await streamToBuffer(Body);
-
+      const imageBuffer = await streamToBuffer(Body as NodeJS.ReadableStream); 
       const processedImageBuffer = await sharp(imageBuffer)
         .resize(300, 300, {
           fit: 'cover',
@@ -46,10 +45,10 @@ export const handler = async (event: S3Event): Promise<void> => {
   }
 };
 
-async function streamToBuffer(stream): Promise<Buffer> {
+async function streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
-    stream.on('data', (chunk) => chunks.push(chunk));
+    stream.on('data', (chunk: Buffer) => chunks.push(chunk)); 
     stream.on('end', () => resolve(Buffer.concat(chunks)));
     stream.on('error', reject);
   });

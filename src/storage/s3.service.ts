@@ -5,6 +5,8 @@ import {
 import {
   S3Client,
   PutObjectCommand,
+  CopyObjectCommand,
+  DeleteObjectCommand,
 } from '@aws-sdk/client-s3';
 import { randomUUID } from 'crypto';
 
@@ -37,7 +39,6 @@ export class S3Service {
           Key: key,
           Body: file.buffer,
           ContentType: file.mimetype,
-          // ACL: 'public-read', 
         }),
       );
 
@@ -52,6 +53,31 @@ export class S3Service {
     } catch (error) {
       console.error('S3 upload error:', error);
       throw new InternalServerErrorException('Image upload failed');
+    }
+  }
+
+  async copyObject(sourceKey: string, destinationKey: string): Promise<void> {
+    try {
+      await this.s3.send(new CopyObjectCommand({
+        Bucket: this.bucketName,
+        CopySource: `${this.bucketName}/${sourceKey}`,
+        Key: destinationKey,
+      }));
+    } catch (error) {
+      console.error('S3 copy error:', error);
+      throw new InternalServerErrorException('Failed to copy S3 object');
+    }
+  }
+
+  async deleteObject(key: string): Promise<void> {
+    try {
+      await this.s3.send(new DeleteObjectCommand({
+        Bucket: this.bucketName,
+        Key: key,
+      }));
+    } catch (error) {
+      console.error('S3 delete error:', error);
+      throw new InternalServerErrorException('Failed to delete S3 object');
     }
   }
 }

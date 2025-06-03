@@ -34,11 +34,11 @@ export class S3BucketStack extends cdk.Stack {
   
     const lambdaCodePath = path.join(__dirname, '../../lambda.zip');
 
-    const myLambdaFunction = new lambda.Function(this, 'MyNotificationLambda', {
+    const myLambdaFunction = new lambda.Function(this, 'ResizeImageLambda', {
       runtime: lambda.Runtime.NODEJS_20_X,
-      handler: 'index.handler',
+      handler: 'index.js',
       code: lambda.Code.fromAsset(lambdaCodePath),
-      memorySize: 128,
+      memorySize: 512,
       timeout: cdk.Duration.seconds(30),
       environment: {
         BUCKET_NAME: userProfilesNestBucket.bucketName,
@@ -47,11 +47,12 @@ export class S3BucketStack extends cdk.Stack {
 
     userProfilesNestBucket.grantReadWrite(myLambdaFunction);
 
+   
     userProfilesNestBucket.addEventNotification(
       s3.EventType.OBJECT_CREATED,
       new s3n.LambdaDestination(myLambdaFunction),
       {
-        prefix: 'uploads/',
+        prefix: 'profiles/', 
         suffix: '.jpg',
       }
     );
@@ -60,7 +61,7 @@ export class S3BucketStack extends cdk.Stack {
       s3.EventType.OBJECT_CREATED,
       new s3n.LambdaDestination(myLambdaFunction),
       {
-        prefix: 'uploads/',
+        prefix: 'profiles/',
         suffix: '.png',
       }
     );
@@ -69,7 +70,34 @@ export class S3BucketStack extends cdk.Stack {
       s3.EventType.OBJECT_CREATED,
       new s3n.LambdaDestination(myLambdaFunction),
       {
-        prefix: 'uploads/',
+        prefix: 'profiles/', 
+        suffix: '.gif',
+      }
+    );
+
+    userProfilesNestBucket.addEventNotification(
+      s3.EventType.OBJECT_CREATED,
+      new s3n.LambdaDestination(myLambdaFunction),
+      {
+        prefix: 'events/', 
+        suffix: '.jpg',
+      }
+    );
+
+    userProfilesNestBucket.addEventNotification(
+      s3.EventType.OBJECT_CREATED,
+      new s3n.LambdaDestination(myLambdaFunction),
+      {
+        prefix: 'events/',
+        suffix: '.png',
+      }
+    );
+
+    userProfilesNestBucket.addEventNotification(
+      s3.EventType.OBJECT_CREATED,
+      new s3n.LambdaDestination(myLambdaFunction),
+      {
+        prefix: 'events/',
         suffix: '.gif',
       }
     );
