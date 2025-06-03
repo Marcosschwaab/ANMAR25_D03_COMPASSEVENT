@@ -32,4 +32,19 @@ export class AuthService {
       access_token: this.jwtService.sign(payload),
     };
   }
+
+  async verifyEmail(token: string): Promise<{ message: string }> {
+    const user = await this.usersService.findById(token);
+
+    if (!user) {
+      throw new UnauthorizedException('Invalid or expired verification token.');
+    }
+
+    if (user.isActive) {
+      return { message: 'Email already verified.' };
+    }
+
+    await this.usersService.activateUser(token);
+    return { message: 'Email successfully verified. You can now log in.' };
+  }
 }

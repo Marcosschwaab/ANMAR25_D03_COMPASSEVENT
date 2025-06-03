@@ -1,7 +1,9 @@
+// src/users/users.service.ts
 import {
   Injectable,
   ConflictException,
   NotFoundException,
+  BadRequestException
 } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
 import * as bcrypt from 'bcrypt';
@@ -15,7 +17,7 @@ import {
 import { ddbDocClient } from '../database/dynamodb.client';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { CreateUserDto } from './dto/create-user.dto';
-import { EmailService } from '../email/email.service'; 
+import { EmailService } from '../email/email.service';
 
 export interface PaginatedUsersResult {
   items: Omit<User, 'password'>[];
@@ -48,7 +50,7 @@ export class UsersService {
       phone: data.phone,
       profileImageUrl: profileImageUrl || '',
       role: data.role,
-      isActive: true,
+      isActive: false,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -60,8 +62,7 @@ export class UsersService {
       }),
     );
 
-
-    const verificationLink = `http://localhost:3000/auth/verify-email?token=${user.id}`; // Placeholder, replace with actual token logic
+    const verificationLink = `${process.env.APP_URL}/auth/verify-email?token=${user.id}`;
     const emailHtml = this.emailService.generateVerificationEmailHtml(user.name, verificationLink);
     try {
         await this.emailService.sendEmail(user.email, 'Verify Your Email Address', emailHtml);
@@ -71,6 +72,31 @@ export class UsersService {
 
     const { password, ...result } = user;
     return result;
+  }
+
+  async activateUser(id: string): Promise<Omit<User, 'password'>> {
+    const userToActivate = await this.findById(id);
+    if (!userToActivate) {
+      throw new NotFoundException(`User with ID "${id}" not found.`);
+    }
+    if (userToActivate.isActive) {
+      throw new BadRequestException('User is already active.');
+    }
+
+    await ddbDocClient.send(
+      new UpdateCommand({
+        TableName: this.tableName,
+        Key: { id },
+        UpdateExpression: 'SET isActive = :isActive, updatedAt = :updatedAt',
+        ExpressionAttributeValues: {
+          ':isActive': true,
+          ':updatedAt': new Date().toISOString(),
+        },
+      }),
+    );
+    userToActivate.isActive = true;
+    userToActivate.updatedAt = new Date().toISOString();
+    return userToActivate;
   }
 
   async list(
@@ -103,7 +129,7 @@ export class UsersService {
 
     if (filters.email) {
       filterExpressions.push('contains(#e, :email)');
-      attributeValues[':email'] = filters.email;
+      attributeValues[':e'] = filters.email;
       expressionAttributeNames['#e'] = 'email';
     }
 
