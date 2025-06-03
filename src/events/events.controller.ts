@@ -84,13 +84,13 @@ export class EventsController {
   @Get()
   @ApiOperation({ summary: 'List events with filters and pagination' })
   async list(@Query(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true })) queryDto: ListEventsQueryDto) {
-    const { name, date, status, limit = 10, startKey } = queryDto;
+    const { name, date, status, limit = 10 } = queryDto;
     const filters: { name?: string; date?: string; status?: EventStatus} = {};
     if (name) filters.name = name;
     if (date) filters.date = date;
     if (status) filters.status = status;
         
-    return this.eventsService.list(filters, limit, startKey ? JSON.parse(startKey) : undefined);
+    return this.eventsService.list(filters, limit);
   }
 
   @Get(':id')

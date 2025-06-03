@@ -5,7 +5,7 @@ import { EventStatus } from '../entities/event.entity';
 
 export class ListEventsQueryDto {
   @ApiPropertyOptional({
-    description: 'Filtrar por parte do nome do evento',
+    description: 'Filter by event name part',
     example: 'Bootcamp',
     type: String,
   })
@@ -14,7 +14,7 @@ export class ListEventsQueryDto {
   name?: string;
 
   @ApiPropertyOptional({
-    description: 'Filtrar eventos que ocorrem a partir desta data (ISO date string)',
+    description: 'Filter events occurring from this date (ISO date string)',
     example: '2025-12-01',
     type: String,
   })
@@ -23,7 +23,7 @@ export class ListEventsQueryDto {
   date?: string;
 
   @ApiPropertyOptional({
-    description: 'Filtrar por status do evento. Se não fornecido, o padrão é listar ativos e não deletados.',
+    description: 'Filter by event status. If not provided, defaults to listing active and non-deleted events.',
     enum: ['active', 'inactive'],
     example: 'active',
   })
@@ -32,7 +32,7 @@ export class ListEventsQueryDto {
   status?: EventStatus;
 
   @ApiPropertyOptional({
-    description: 'Número de eventos a serem retornados por página',
+    description: 'Number of events to be returned per page',
     default: 10,
     type: Number,
     minimum: 1,
@@ -42,13 +42,4 @@ export class ListEventsQueryDto {
   @IsInt()
   @Min(1)
   limit: number = 10;
-
-  @ApiPropertyOptional({
-    description: 'Token para a próxima página de resultados (ExclusiveStartKey da resposta anterior)',
-    example: 'eyJsYXN0SWRQYWdlIjoiYWFhYWFhYS0xMTExOAcgZtc=',
-    type: String,
-  })
-  @IsOptional()
-  @IsString()
-  startKey?: string;
 }
