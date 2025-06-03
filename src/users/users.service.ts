@@ -1,4 +1,3 @@
-// src/users/users.service.ts
 import {
   Injectable,
   ConflictException,
@@ -257,7 +256,7 @@ export class UsersService {
       }
       updateFields.push('#e = :email');
       attributeNames['#e'] = 'email';
-      attributeValues[':email'] = data.email;
+      attributeValues[':e'] = data.email;
       actualDataChanged = true;
     }
 
@@ -319,5 +318,15 @@ export class UsersService {
         },
       }),
     );
+
+    const emailSubject = 'Your Account Has Been Deleted';
+    const emailMessage = `Hello ${userToDelete.name}, your account has been successfully deleted. If you did not request this, please contact us.`;
+    const emailHtml = this.emailService.generateGenericNotificationHtml(emailSubject, emailMessage);
+
+    try {
+        await this.emailService.sendEmail(userToDelete.email, emailSubject, emailHtml);
+    } catch (error) {
+        console.error('Failed to send account deletion email:', error);
+    }
   }
 }
