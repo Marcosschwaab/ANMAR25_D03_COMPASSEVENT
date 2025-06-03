@@ -4,7 +4,7 @@ import {
   NotFoundException,
   BadRequestException
 } from '@nestjs/common';
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4 } from 'uuid'; // Mantenha a importação se ainda usar em outros lugares
 import * as bcrypt from 'bcrypt';
 import { User, UserRole } from './entities/user.entity';
 import {
@@ -15,7 +15,7 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 import { ddbDocClient } from '../database/dynamodb.client';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { CreateUserDto } from './dto/create-user.dto';
+import { CreateUserDto } from './dto/create-user.dto'; // Permanece o mesmo
 import { EmailService } from '../email/email.service';
 
 export interface PaginatedUsersResult {
@@ -35,7 +35,8 @@ export class UsersService {
 
   constructor(private readonly emailService: EmailService) {}
 
-  async create(data: CreateUserDto, profileImageUrl?: string): Promise<Omit<User, 'password'>> {
+  // Aceita o id do usuário como parte dos dados de criação
+  async create(data: CreateUserDto & { id?: string }, profileImageUrl?: string): Promise<Omit<User, 'password'>> {
     const existing = await this.findByEmail(data.email);
     if (existing) {
       throw new ConflictException('Email already exists');
@@ -44,7 +45,7 @@ export class UsersService {
     const isEmailServiceConfigured = this.emailService.isConfigured();
 
     const user: User = {
-      id: uuidv4(),
+      id: data.id || uuidv4(), // Usa o id fornecido, ou gera um novo se não for fornecido
       name: data.name,
       email: data.email,
       password: await bcrypt.hash(data.password, 10),

@@ -29,6 +29,7 @@ import { UserRole } from './entities/user.entity';
 import { ListUserDto } from './dto/list-user.dto';
 import { Express } from 'express';
 import { SpecificOptionalImageValidationPipe } from '../common/pipes/specific-optional-image-validation.pipe';
+import { v4 as uuidv4 } from 'uuid'; 
 
 @ApiBearerAuth('access-token')
 @ApiTags('users')
@@ -48,31 +49,18 @@ export class UsersController {
     @Body(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true })) createUserDto: CreateUserDto,
     @UploadedFile(new SpecificOptionalImageValidationPipe()) file?: Express.Multer.File,
   ) {
+    const userId = uuidv4(); 
     let profileImageUrl: string | undefined;
     const { file: _fileBody, ...userData } = createUserDto;
-    let tempFileKey: string | undefined;
 
     if (file) {
-      profileImageUrl = await this.s3Service.uploadImage(file, 'temp-user-id', 'profiles');
-      const urlParts = profileImageUrl.split('/');
-      tempFileKey = urlParts.slice(4).join('/');
+  
+      profileImageUrl = await this.s3Service.uploadImage(file, userId, 'profiles');
     }
-    const user = await this.usersService.create(userData, profileImageUrl);
+   
+    const user = await this.usersService.create({ ...userData, id: userId }, profileImageUrl); 
 
-    if (profileImageUrl && user && user.id && tempFileKey) {
-        const newFileKey = tempFileKey.replace('temp-user-id', user.id);
-        const finalImageUrl = profileImageUrl.replace('temp-user-id', user.id);
-
-        try {
-            await this.s3Service.copyObject(tempFileKey, newFileKey);
-            await this.s3Service.deleteObject(tempFileKey);
-            await this.usersService.update(user.id, { profileImageUrl: finalImageUrl });
-            return { ...user, profileImageUrl: finalImageUrl };
-        } catch (error) {
-            console.error('Error moving S3 object after user creation:', error);
-            return { ...user, profileImageUrl: profileImageUrl };
-        }
-    }
+   
     return user;
   }
 
