@@ -14,13 +14,18 @@ import { ddbDocClient } from '../database/dynamodb.client';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { S3Service } from '../storage/s3.service';
-
+import { EmailService } from '../email/email.service';
+import { UsersService } from '../users/users.service';
 
 @Injectable()
 export class EventsService {
   private tableName = 'Events';
 
-  constructor(private readonly s3Service: S3Service) {}
+  constructor(
+    private readonly s3Service: S3Service,
+    private readonly emailService: EmailService,
+    private readonly usersService: UsersService,
+  ) {}
 
   async create(eventDto: Omit<CreateEventDto, 'file'>, organizerId: string, file?: Express.Multer.File): Promise<Event> {
     const existing = await this.findByName(eventDto.name);
@@ -53,6 +58,18 @@ export class EventsService {
         Item: event,
       }),
     );
+
+    const organizer = await this.usersService.findById(organizerId);
+    if (organizer) {
+      const emailSubject = 'Event Created Successfully';
+      const emailMessage = `Hello ${organizer.name}, your event "${event.name}" has been successfully created and is now active.`;
+      const emailHtml = this.emailService.generateGenericNotificationHtml(emailSubject, emailMessage);
+      try {
+        await this.emailService.sendEmail(organizer.email, emailSubject, emailHtml);
+      } catch (error) {
+        console.error('Failed to send event creation email:', error);
+      }
+    }
 
     return event;
   }
@@ -94,7 +111,7 @@ export class EventsService {
     return event;
   }
 
-  
+
   async update(id: string, updates: Omit<UpdateEventDto, 'file'>, file?: Express.Multer.File): Promise<Event> {
     const eventToUpdate = await this.findById(id);
 
@@ -151,7 +168,7 @@ export class EventsService {
   }
 
   async softDelete(id: string): Promise<void> {
-    await this.findById(id);
+    const eventToDelete = await this.findById(id);
 
     await ddbDocClient.send(
       new UpdateCommand({
@@ -169,6 +186,18 @@ export class EventsService {
         },
       }),
     );
+
+    const organizer = await this.usersService.findById(eventToDelete.organizerId);
+    if (organizer) {
+      const emailSubject = 'Event Deleted Successfully';
+      const emailMessage = `Hello ${organizer.name}, your event "${eventToDelete.name}" has been successfully deleted.`;
+      const emailHtml = this.emailService.generateGenericNotificationHtml(emailSubject, emailMessage);
+      try {
+        await this.emailService.sendEmail(organizer.email, emailSubject, emailHtml);
+      } catch (error) {
+        console.error('Failed to send event deletion email:', error);
+      }
+    }
   }
 
   async list(
