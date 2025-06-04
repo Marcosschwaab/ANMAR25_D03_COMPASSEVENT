@@ -45,11 +45,14 @@ export class CreateUserDto {
   password: string;
 
   @ApiProperty({
-    example: '+1234567890',
-    description: 'The phone number of the user',
-    required: true,
+    example: '(11) 98765-4321',
+    description: 'Phone number in format (XX) XXXXX-XXXX or (XX) XXXX-XXXX',
   })
-  @IsNotEmpty()
+  @IsString()
+  @Matches(
+    /^\(?\d{2}\)?\s?\d{4,5}-?\d{4}$/,
+    { message: 'Phone must be in the format (XX) XXXX-XXXX or (XX) XXXXX-XXXX' },
+  )
   phone: string;
 
   @ApiProperty({

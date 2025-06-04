@@ -40,11 +40,15 @@ export class UpdateUserDto {
   password?: string;
 
   @ApiPropertyOptional({
-    example: '+1987654321',
-    description: 'New phone number of the user',
+    example: '(11) 98765-4321',
+    description: 'New phone number in format (XX) XXXXX-XXXX or (XX) XXXX-XXXX',
   })
   @IsOptional()
   @IsString()
+  @Matches(
+    /^\(?\d{2}\)?\s?\d{4,5}-?\d{4}$/,
+    { message: 'Phone must be in the format (XX) XXXX-XXXX or (XX) XXXXX-XXXX' },
+  )
   phone?: string;
 
   @ApiPropertyOptional({
