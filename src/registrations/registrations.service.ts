@@ -17,6 +17,30 @@ export class RegistrationsService {
     private readonly usersService: UsersService,
   ) {}
 
+  private generateIcsContent(event: any, participant: any): string {
+    const startTime = new Date(event.date);
+    const endTime = new Date(startTime.getTime() + 60 * 60 * 1000);
+
+    const icsContent = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//Event Manager//NONSGML v1.0//EN',
+      'BEGIN:VEVENT',
+      `UID:${uuidv4()}`,
+      `DTSTAMP:${new Date().toISOString().replace(/[-:]|\.\d{3}/g, '')}`,
+      `DTSTART:${startTime.toISOString().replace(/[-:]|\.\d{3}/g, '')}`,
+      `DTEND:${endTime.toISOString().replace(/[-:]|\.\d{3}/g, '')}`,
+      `SUMMARY:Registration for ${event.name}`,
+      `DESCRIPTION:You have successfully registered for the event: ${event.name}.`,
+      `LOCATION:${event.location || 'Online Event'}`,
+      `ATTENDEE;CN="${participant.name}":mailto:${participant.email}`,
+      'END:VEVENT',
+      'END:VCALENDAR',
+    ].join('\r\n');
+
+    return icsContent;
+  }
+
   async create(eventId: string, participantId: string) {
     const event = await this.eventsService.findById(eventId);
 
@@ -46,10 +70,24 @@ export class RegistrationsService {
       const emailSubject = 'Registration Created Successfully!';
       const emailMessage = `Hello ${participant.name}, your registration for the event "${event.name}" has been successfully created.`;
       const emailHtml = this.emailService.generateGenericNotificationHtml(emailSubject, emailMessage);
+      
+      const icsContent = this.generateIcsContent(event, participant);
+
       try {
-        await this.emailService.sendEmail(participant.email, emailSubject, emailHtml);
+        await this.emailService.sendEmail(
+          participant.email,
+          emailSubject,
+          emailHtml,
+          undefined, // textBody (opcional, deixar undefined se não usado)
+          [{
+            filename: `${event.name.replace(/\s/g, '_')}_registration.ics`,
+            content: icsContent,
+            contentType: 'text/calendar; charset=utf-8',
+            encoding: '8bit'
+          }]
+        );
       } catch (error) {
-        console.error('Failed to send registration creation email:', error);
+        console.error('Failed to send registration creation email with ICS:', error);
       }
     }
 
