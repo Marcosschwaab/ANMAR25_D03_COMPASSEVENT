@@ -36,7 +36,7 @@ export class S3BucketStack extends cdk.Stack {
 
     const myLambdaFunction = new lambda.Function(this, 'ResizeImageLambda', {
       runtime: lambda.Runtime.NODEJS_20_X,
-      handler: 'index.js',
+      handler: 'index.handler',
       code: lambda.Code.fromAsset(lambdaCodePath),
       memorySize: 512,
       timeout: cdk.Duration.seconds(30),

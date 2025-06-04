@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.handler = void 0;
+const { S3Client, GetObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
 const client_s3_1 = require("@aws-sdk/client-s3");
 const sharp = require("sharp");
 const s3Client = new client_s3_1.S3Client({});
