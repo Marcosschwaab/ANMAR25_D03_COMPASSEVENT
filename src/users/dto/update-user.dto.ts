@@ -4,6 +4,7 @@ import {
   Matches,
   MinLength,
   IsString,
+  ValidateIf,
 } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Express } from 'express';
@@ -22,9 +23,10 @@ export class UpdateUserDto {
     example: 'jane.doe@example.com',
     description: 'New email address of the user',
   })
-  @IsOptional()
-  @IsEmail({}, { message: 'Please provide a valid email address' })
+  @IsOptional() 
   @Transform(({ value }) => (value === '' ? null : value)) 
+  @ValidateIf((obj, value) => value !== null && value !== undefined)
+  @IsEmail({}, { message: 'Please provide a valid email address' })
   email?: string;
 
   @ApiPropertyOptional({
